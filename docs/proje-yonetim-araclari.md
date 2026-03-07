@@ -396,10 +396,6 @@ C: Günde en az bir standup mesajı. Bir sorunla karşılaştığınızda hemen 
 | Jira Panosu | https://sibersavascilar.atlassian.net/jira |
 | Slack Workspace | https://siber-savascilar-ptt.slack.com |
 
-
-
-> 💡 **İpucu:** Araçlara alışmak birkaç gün sürebilir. Bir şeyi nasıl yapacağınızı bilmiyorsanız önce bu rehbere, sonra Slack `#genel` kanalına sorabilirsiniz.
-
 &nbsp;
 
 <p align="right">
