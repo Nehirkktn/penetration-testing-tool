@@ -1,12 +1,14 @@
-# “SİBER SAVAŞÇILAR”- Proje Akışı ve Haftalık İlerleme
-## 1. Hafta ( 9-15 Mart )
-* ## *Nehir KÖKTEN (Scrum Master / Yönetici):* 
-GitHub reposu oluşturuldu, branch koruma kuralları (main) ayarlandı. Ekibe iş akışı eğitimi verildi. Proje akış dokümanı oluşturuldu. Proje için gerekli olan fonksiyonel ve teknik gereksinimler toplandı. Paydaşlar (kullanıcılar, sistem yöneticileri, vb.) belirlendi ve onların beklentileri analiz edildi.
-* ## *Muhammed Baki BAŞBAY :* 
-Projede kullanılacak uygun teknolojiler (programlama dilleri, kütüphaneler, araçlar, platformlar) araştırIıldı. Her teknolojinin avantaj ve dezavantajları karşılaştırıldı. Proje gereksinimlerine en uygun teknolojiler seçilip rapor haline getirildi.
-* ## *Şevval DURAN:* 
-Seçilen teknolojilere uygun geliştirme ortamı (IDE, derleyiciler, kütüphaneler, sanal makineler vb.) kuruldu ve yapılandırıldı. Ortamın doğru çalıştığı ve projenin gereksinimlerini karşılandığını doğrulandı. Kurulum adımları ve yapılandırma detayları belgelendi
-* ## *M.Sefa KOZAN:* 
-Proje yönetimi ve iş birliği için kullanılacak araçları (örneğin, Jira, Trello, Slack, Git) kurun ve yapılandırıldı. Ekip üyelerinin bu araçları etkili bir şekilde kullanabilmesi için gerekli eğitimleri sağlandı. Araçlar proje hedeflerine uygun şekilde yapılandırıldı.
-* ## *Nursena KARADUMAN:* 
-Projenin genel hedefleri ve kapsamı analiz edildi. Hangi siber güvenlik tehditlerine odaklanılacağını ve hangi savunma mekanizmalarının geliştirileceği belirlendi. Bir proje kapsamı belgesi hazırlandı.
+# SİBER SAVAŞÇILAR" - Proje Akışı ve Haftalık İlerleme
+
+Bu dosya, "SİBER SAVAŞÇILAR" takımının haftalık proje ilerlemesini ve üyelerin görev dağılımlarını içermektedir.
+
+## 1. Hafta (9-15 Mart)
+
+* **Nehir KÖKTEN (Scrum Master / Yönetici):** GitHub reposu oluşturuldu, branch koruma kuralları (main) ayarlandı. Ekibe iş akışı eğitimi verildi. Proje paydaşları belirlendi ve beklenti analizleri yapılarak projenin fonksiyonel gereksinimleri toparlandı.
+* **Muhammed Baki BAŞBAY:** Projede kullanılacak uygun teknolojiler (diller, kütüphaneler, platformlar) araştırıldı, avantaj ve kısıtlamaları değerlendirilerek projemize en uygun teknoloji yığını belirlendi.
+* **Şevval DURAN:** Seçilen teknolojilere uygun geliştirme ortamı (IDE, kütüphaneler, sanal makineler) kuruldu, sorunsuz çalıştığı test edildi ve kurulum adımları dokümante edildi.
+* **M.Sefa KOZAN:** Proje yönetimi ve ekip iş birliği için kullanılacak araçlar (iş takip paneli, Git vb.) kuruldu, yapılandırıldı ve ekibin kullanımı için gerekli yönlendirmeler yapıldı.
+* **Nursena KARADUMAN:** Projenin genel hedefi, odaklanılacak siber güvenlik tehditleri ve geliştirilecek savunma mekanizmaları detaylıca analiz edilerek proje kapsamı belirlendi.
+
+## 2. Hafta 
+*(İlerleyen haftalarda üyelerin kendi açacakları Pull Request'ler (PR) ile doldurulacak)*
