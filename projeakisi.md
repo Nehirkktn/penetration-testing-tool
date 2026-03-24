@@ -10,5 +10,3 @@ Bu dosya, "SİBER SAVAŞÇILAR" takımının haftalık proje ilerlemesini ve üy
 * **M.Sefa KOZAN:** Proje yönetimi ve ekip iş birliği için kullanılacak araçlar (iş takip paneli, Git vb.) kuruldu, yapılandırıldı ve ekibin kullanımı için gerekli yönlendirmeler yapıldı.
 * **Nursena KARADUMAN:** Projenin genel hedefi, odaklanılacak siber güvenlik tehditleri ve geliştirilecek savunma mekanizmaları detaylıca analiz edilerek proje kapsamı belirlendi.
 
-## 2. Hafta 
-*(İlerleyen haftalarda üyelerin kendi açacakları Pull Request'ler (PR) ile doldurulacak)*
