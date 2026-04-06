@@ -1,0 +1,16 @@
+# ===============================================
+# Siber Savascilar — Sizma Testi Otomasyon Araci
+# SQLMap Entegrasyon Modulu Bagimliliklari
+# ===============================================
+
+# ── Test Araclari ──
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# ── SQLMap (Opsiyonel — genellikle sistem paket yoneticisi ile kurulur) ──
+# pip install sqlmap  # Alternatif: apt install sqlmap / brew install sqlmap
+
+# ── Gelecek Entegrasyonlar icin (su an kullanilmiyor) ──
+# requests>=2.28.0        # HTTP istekleri (Muhammed'in UI modulu ile)
+# beautifulsoup4>=4.11.0  # HTML parsing (proje kapsami)
+# python-nmap>=0.7.1      # Nmap entegrasyonu (Sevval'in modulu ile)
