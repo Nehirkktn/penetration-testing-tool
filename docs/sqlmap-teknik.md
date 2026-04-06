@@ -1,21 +1,16 @@
-# SQLMap Entegrasyon Modülü — Teknik Dokümantasyon
+# SQLMap Entegrasyon Modülü — Teknik Detay
 
-## 📖 Genel Bakış
-
-Bu modül, **Siber Savaşçılar** projesi kapsamında SQL injection zafiyetlerini otomatik olarak tespit etmek için geliştirilmiştir. [SQLMap](https://sqlmap.org/) aracını Python subprocess aracılığıyla yöneterek, tarama başlatma, sonuç parse etme ve raporlama modülüne aktarma işlemlerini gerçekleştirir.
-
-**Geliştiren:** Muhammet Sefa Kozan  
-**Hafta:** 4 (30 Mart - 5 Nisan 2026)  
+**Geliştiren:** Muhammet Sefa Kozan
 **Teknolojiler:** Python 3.8+, SQLMap, subprocess
 
 ---
 
-## 🏗️ Mimari Yapı
+## 📐 Proje Yapısı
 
 ```
 src/
 ├── scanners/
-│   └── sqlmap_scanner.py    → Ana tarama motoru (subprocess)
+│   └── sqlmap_scanner.py    → Ana tarama motoru
 ├── config/
 │   └── sqlmap_config.py     → Yapilandirma sinifi
 ├── parsers/
@@ -26,206 +21,221 @@ src/
     └── validators.py        → Dogrulama araclari
 ```
 
-### Veri Akış Diyagramı
+---
 
+## 1. `validators.py` — Girdi Doğrulama
+
+Kullanıcıdan gelen tüm girdileri doğrular ve güvenli hale getirir.
+
+### `URLValidator` sınıfı
+
+| Metod | İşlev |
+|-------|-------|
+| `validate_url(url)` | http/https kontrolü, geçerli domain/IP doğrulaması |
+| `has_parameters(url)` | URL'de `?id=1` gibi query parametresi var mı |
+| `extract_parameters(url)` | Parametreleri çıkarır → `{"id": ["1"]}` |
+| `validate_for_sqli_test(url)` | SQLi testi için uygunluk değerlendirmesi |
+
+### `ConfigValidator` sınıfı
+
+| Metod | İşlev |
+|-------|-------|
+| `validate_dbms(dbms)` | 28+ DBMS desteği, alias tanıma (`postgres` → `postgresql`) |
+| `validate_techniques(techniques)` | BEUSTQ harflerinin geçerliliği |
+| `validate_risk(risk)` | 1-3 aralık kontrolü |
+| `validate_level(level)` | 1-5 aralık kontrolü |
+| `sanitize_parameter(param)` | `;`, `\|`, `&` gibi tehlikeli karakterleri temizler (shell injection koruması) |
+
+---
+
+## 2. `sqlmap_config.py` — Yapılandırma Sınıfı
+
+Tüm tarama parametrelerini toplar ve SQLMap komut satırı argümanlarına dönüştürür.
+
+### `SQLMapConfig` (dataclass) alanları:
+
+```python
+target_url = "http://example.com/page?id=1"     # Hedef URL (zorunlu)
+dbms       = "mysql"                            # Veritabani turu
+level      = 3                                  # Test derinligi (1-5)
+risk       = 2                                  # Risk seviyesi (1-3)
+techniques = "BEUST"                            # Injection teknikleri
+threads    = 3                                  # Es zamanli istek
+batch      = True                               # Otomatik mod
 ```
-Kullanici/UI  →  SQLMapConfig  →  SQLMapScanner  →  subprocess (sqlmap)
-                                        ↓
-                               SQLMapOutputParser  →  ScanResult
-                                        ↓
-                              Vulnerability [liste]
-                                        ↓
-                    ┌───────────────────┼──────────────────┐
-                    ↓                   ↓                  ↓
-              SCANS tablosu   VULNERABILITIES tablosu  REPORTS tablosu
+
+### Komut dönüşüm mekanizması:
+
+`to_command_args()` metodu her alanı SQLMap argümanına çevirir:
+
+```python
+config = SQLMapConfig(target_url="http://hedef.com?id=1", dbms="mysql", level=3)
+print(config.to_command_args())
+# ["-u", "http://hedef.com?id=1", "--dbms", "mysql", "--level", "3",
+#  "--batch", "--random-agent"]
+```
+
+| Metod | Çıktı |
+|-------|-------|
+| `to_command_args()` | `["-u", "...", "--batch", "--level", "3"]` liste |
+| `to_command_string()` | `sqlmap -u '...' --batch --level '3'` string |
+| `validate()` | Hata listesi döner |
+| `to_dict()` / `from_dict()` | JSON dönüşümü |
+
+### Factory metodları:
+
+```python
+SQLMapConfig.quick_scan(url)       # Level 1, Risk 1, teknikler: BE
+SQLMapConfig.standard_scan(url)    # Level 3, Risk 2, teknikler: BEUST
+SQLMapConfig.deep_scan(url)        # Level 5, Risk 3, teknikler: BEUSTQ
+SQLMapConfig.post_scan(url, data)  # POST form testi
 ```
 
 ---
 
-## 🚀 Kullanım Kılavuzu
+## 3. `sqlmap_scanner.py` — Tarama Motoru
 
-### Temel Kullanım
+SQLMap'i `subprocess` ile komut satırında çalıştıran ana motor.
+
+### SQLMap'i bulma süreci:
 
 ```python
-from src.scanners.sqlmap_scanner import SQLMapScanner
-from src.config.sqlmap_config import SQLMapConfig
-
-# Scanner olustur
 scanner = SQLMapScanner()
-
-# Hizli tarama yapilandirmasi
-config = SQLMapConfig.quick_scan(
-    url="http://hedef-site.com/sayfa?id=1",
-    dbms="mysql"
-)
-
-# Taramayi baslat
-result = scanner.scan(config)
-
-# Sonuclari kontrol et
-if result.is_vulnerable:
-    print(f"🔴 {result.vulnerability_count} zafiyet bulundu!")
-    print(result.generate_summary())
-else:
-    print("✅ SQL injection zafiyeti tespit edilmedi.")
+# 1. PATH'te "sqlmap" arar
+# 2. /usr/bin/sqlmap, /usr/local/bin/sqlmap kontrol eder
+# 3. python3 -m sqlmap denemesi yapar
 ```
 
-### Özel Yapılandırma ile Tarama
+### Komut satırı çalıştırma mekanizması:
 
 ```python
-config = SQLMapConfig(
-    target_url="http://hedef-site.com/login",
-    data="username=admin&password=test",    # POST verisi
-    dbms="postgresql",                       # Veritabani turu
-    level=3,                                 # Test derinligi (1-5)
-    risk=2,                                  # Risk seviyesi (1-3)
-    techniques="BEUST",                      # Istenen teknikler
-    threads=5,                               # Es zamanli istek
-    timeout=60,                              # Istek zaman asimi
-    tamper=["space2comment", "randomcase"],   # WAF bypass
-)
+# _run_scan() metodunun dahili calismasi:
+cmd = self._build_base_command() + scan_config.to_command_args()
+# Ornek: ["sqlmap", "-u", "http://hedef.com?id=1", "--batch", "--dbms", "mysql"]
 
-result = scanner.scan(config)
+process = subprocess.run(
+    cmd,
+    capture_output=True,    # stdout/stderr yakala
+    text=True,              # String olarak al
+    timeout=scan_timeout,   # Zaman asimi korumasi
+)
+# process.stdout → SQLMapParser'a gonderilir
 ```
 
-### Hazır Tarama Profilleri
+### Tarama modları:
 
-| Profil | Level | Risk | Teknikler | Kullanım Alanı |
-|--------|-------|------|-----------|----------------|
-| `quick_scan()` | 1 | 1 | BE | Hızlı keşif, ilk tarama |
-| `standard_scan()` | 3 | 2 | BEUST | Günlük taramalar |
-| `deep_scan()` | 5 | 3 | BEUSTQ | Kapsamlı denetim |
-| `post_scan()` | 3 | 2 | BEUST | Form/Login testleri |
-
+**Senkron:**
 ```python
-# Hizli kesif
-config = SQLMapConfig.quick_scan("http://hedef.com?id=1")
-
-# Standart tarama
-config = SQLMapConfig.standard_scan("http://hedef.com?id=1", dbms="mysql")
-
-# Derin analiz
-config = SQLMapConfig.deep_scan("http://hedef.com?id=1")
-
-# POST taramasi
-config = SQLMapConfig.post_scan(
-    "http://hedef.com/login",
-    post_data="user=admin&pass=test"
-)
+result = scanner.scan(config)              # Bitene kadar bekler
+result = scanner.scan(config, timeout=120) # Max 120 saniye
 ```
+
+**Asenkron:**
+```python
+task_id = scanner.scan_async(config)       # Arka planda baslat
+status = scanner.get_scan_status(task_id)  # Durumu sorgula
+result = scanner.get_scan_result(task_id)  # Sonuclari al
+scanner.stop_scan(task_id)                 # Durdur
+```
+
+### Hata yönetimi:
+
+| Hata Sınıfı | Ne Zaman Fırlatılır |
+|---|---|
+| `SQLMapNotFoundError` | SQLMap sistemde bulunamadığında |
+| `SQLMapScanError` | Tarama sırasında hata oluştuğunda |
+| `TimeoutError` | Tarama zaman aşımına uğradığında |
 
 ---
 
-## 📊 Raporlama Modülü Entegrasyonu
+## 4. `sqlmap_parser.py` — Çıktı Ayrıştırıcı
 
-### Veritabanı Uyumlu Çıktı
+SQLMap'in konsol çıktısını regex ile okur ve `Vulnerability` nesnelerine dönüştürür.
 
-Modül, Nursena'nın tasarladığı veritabanı şemasına tam uyumlu çıktı üretir:
+### SQLMap çıktı örneği ve parse edilen veriler:
+
+```
+Parameter: id (GET)              → parametre="id", injection_type="GET"
+    Type: boolean-based blind    → technique="boolean-based blind"
+    Title: AND boolean-based ... → title="AND boolean-based ..."
+    Payload: id=1 AND 5765=5765  → payload="id=1 AND 5765=5765"
+
+back-end DBMS: MySQL >= 5.0     → dbms="MySQL", dbms_version=">=5.0"
+```
+
+### Teknik → Kritiklik eşlemesi:
+
+| Teknik | Severity | Neden |
+|--------|----------|-------|
+| Union query | **Critical** | Doğrudan veri çekme |
+| Stacked queries | **Critical** | Birden fazla SQL komutu |
+| Inline query | **Critical** | Alt sorgu enjeksiyonu |
+| Boolean-based | **High** | Veri sızdırma potansiyeli |
+| Error-based | **High** | Hata mesajlarından veri çıkarma |
+| Time-based | **Medium** | Yavaş ve sınırlı |
+
+---
+
+## 5. `scan_result.py` — Veri Modelleri
+
+### `Vulnerability` sınıfı — Tek zafiyet:
 
 ```python
-result = scanner.scan(config)
+vuln = Vulnerability(
+    vuln_type="SQLi",                       # Sabit
+    severity="Critical",                    # Critical/High/Medium/Low
+    parameter="id",                         # Zafiyetli parametre
+    technique="Union query-based",          # Kullanilan teknik
+    injection_type="GET",                   # GET/POST/Cookie/Header
+    payload="id=1 UNION SELECT NULL,NULL",  # Kullanilan payload
+    dbms="MySQL",                           # Tespit edilen DBMS
+)
+```
+
+### `ScanResult` sınıfı — Tarama sonucu:
+
+Hesaplanan özellikler:
+
+| Özellik | Dönüş | Açıklama |
+|---------|-------|----------|
+| `is_vulnerable` | bool | Zafiyet var mı |
+| `vulnerability_count` | int | Kaç zafiyet bulundu |
+| `highest_severity` | str | En yüksek kritiklik |
+| `affected_parameters` | list | Etkilenen parametreler |
+| `duration_seconds` | float | Tarama süresi |
+
+### Raporlama modülüne aktarım:
+
+`to_db_records()` metodu Nursena'nın veritabanı şemasına uyumlu çıktı üretir:
+
+```python
 db_records = result.to_db_records()
 
-# SCANS tablosuna ekleme
-scan_data = db_records["scan"]
+db_records["scan"]
 # → {"target_url": "...", "status": "completed", "started_at": "...", "finished_at": "..."}
 
-# VULNERABILITIES tablosuna ekleme
-for vuln in db_records["vulnerabilities"]:
-    # → {"vuln_type": "SQLi", "severity": "Critical", "parameter": "id", ...}
-    pass
+db_records["vulnerabilities"]
+# → [{"vuln_type": "SQLi", "severity": "Critical", "parameter": "id", ...}]
 
-# REPORTS tablosuna ekleme
-report_data = db_records["report"]
-# → {"summary": "🔴 ... hedefinde 4 adet SQL injection zafiyeti tespit edildi..."}
+db_records["report"]
+# → {"summary": "... hedefinde 3 adet SQL injection zafiyeti tespit edildi..."}
 ```
 
-### JSON Rapor Çıktısı
+| Tablo | Eşlenen Alanlar |
+|-------|----------------|
+| `SCANS` | target_url, status, started_at, finished_at |
+| `VULNERABILITIES` | vuln_type, severity, parameter, technique, payload |
+| `REPORTS` | summary |
 
-```python
-# Tam JSON rapor
-json_report = result.to_json(indent=2)
+---
 
-# Raporlama modulune aktarma sozlugu
-report_dict = result.to_report_dict()
+## 🧪 Test Sonuçları
+
 ```
-
----
-
-## ⚙️ Yapılandırma Parametreleri Referansı
-
-### Hedef Parametreleri
-
-| Parametre | Tip | Varsayılan | Açıklama |
-|-----------|-----|------------|----------|
-| `target_url` | str | (zorunlu) | Hedef URL |
-| `parameter` | str | "" | Test edilecek parametre(ler) |
-| `data` | str | "" | POST verisi |
-| `method` | str | "" | HTTP metodu (GET/POST) |
-| `cookie` | str | "" | Cookie değeri |
-| `headers` | dict | {} | Ek HTTP başlıkları |
-
-### Veritabanı ve Test
-
-| Parametre | Tip | Varsayılan | Açıklama |
-|-----------|-----|------------|----------|
-| `dbms` | str | "" | Hedef DBMS (otomatik tespit için boş bırakın) |
-| `level` | int | 1 | Test seviyesi (1-5) |
-| `risk` | int | 1 | Risk seviyesi (1-3) |
-| `techniques` | str | "" | Injection teknikleri (BEUSTQ) |
-
-### Desteklenen Veritabanı Sistemleri
-
-MySQL, PostgreSQL, Microsoft SQL Server, Oracle, SQLite, IBM DB2, Firebird, Sybase, SAP MaxDB, HSQLDB, H2, MonetDB, Apache Derby, Vertica, ve diğerleri.
-
-### Injection Teknikleri
-
-| Kod | Teknik | Risk | Açıklama |
-|-----|--------|------|----------|
-| B | Boolean-based blind | High | Mantıksal karşılaştırma ile veri sızdırma |
-| E | Error-based | High | Hata mesajlarından veri çıkarma |
-| U | Union query-based | Critical | UNION ile doğrudan veri çekme |
-| S | Stacked queries | Critical | Birden fazla SQL komutu çalıştırma |
-| T | Time-based blind | Medium | Zaman gecikmesi ile veri sızdırma |
-| Q | Inline queries | Critical | Alt sorgu enjeksiyonu |
-
----
-
-## 🧪 Testler
-
-```bash
-# Tum testleri calistir
-pytest tests/ -v
-
-# Belirli modul testi
-pytest tests/test_sqlmap_config.py -v
-pytest tests/test_sqlmap_parser.py -v
-pytest tests/test_sqlmap_scanner.py -v
-pytest tests/test_validators.py -v
-
-# Coverage raporu
-pytest tests/ --cov=src --cov-report=term-missing
+test_sqlmap_config.py    — 25 test (yapilandirma, dogrulama, komut uretimi)
+test_sqlmap_parser.py    — 25 test (cikti parse, severity, DBMS tespiti)
+test_sqlmap_scanner.py   — 19 test (tarama, timeout, hata yonetimi, async)
+test_validators.py       — 46 test (URL, DBMS, risk, level, sanitizasyon)
+────────────────────────────────────
+Toplam: 115 passed ✅
 ```
-
----
-
-## 🔒 Güvenlik Notları
-
-1. **Parametre Sanitizasyonu**: Tüm kullanıcı girdileri `ConfigValidator.sanitize_parameter()` ile temizlenir (shell injection koruması).
-2. **Batch Modu**: SQLMap varsayılan olarak `--batch` modunda çalışır (interaktif sorular otomatik yanıtlanır).
-3. **Random User-Agent**: Her taramada rastgele tarayıcı kimliği kullanılır.
-4. **Timeout Koruması**: Uzun süren taramalar otomatik olarak sonlandırılır.
-
-> ⚠️ **Yasal Uyarı**: Bu araç yalnızca yasal izinleri alınmış sistemler üzerinde kullanılmalıdır.
-
----
-
-## 📁 Dosya Özetleri
-
-| Dosya | Satır | Açıklama |
-|-------|-------|----------|
-| `scan_result.py` | ~250 | Vulnerability ve ScanResult dataclass modelleri |
-| `sqlmap_config.py` | ~320 | Yapılandırma, doğrulama ve komut dönüşümü |
-| `sqlmap_parser.py` | ~310 | Regex tabanlı çıktı ayrıştırıcı |
-| `sqlmap_scanner.py` | ~380 | Subprocess tabanlı tarama motoru |
-| `validators.py` | ~240 | URL, DBMS ve güvenlik doğrulama |
