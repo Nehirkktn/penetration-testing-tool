@@ -42,65 +42,178 @@ python3 -m pytest tests/ -v
 
 ---
 
-## 📖 Kullanım Örnekleri
+## 📟 Terminal Üzerinden Hızlı Test (Kod Yazmadan Çalıştırma)
 
-### Hızlı Tarama
+> **Kimler için?** Projeyi ilk kez kuran, testleri çalıştırmak isteyen veya hızlıca bir tarama denemek isteyen **tüm ekip üyeleri** bu bölümü kullanabilir.
+
+### Terminal (Konsol) Nedir ve Nereden Açılır?
+
+Bulunduğunuz ortama göre terminali açma yöntemleri ve dosya yolu mantığı farklıdır:
+
+**Yöntem 1: VS Code (IDE) İçinden Açmak (Önerilen)**
+- Üst menüden `Terminal → New Terminal` seçin veya `` Ctrl+` `` (Mac için `` Cmd+` ``) kısayolunu kullanın. Ekranın altında terminal açılacaktır.
+- IDE içinden açtığınızda **otomatik olarak projenizin bulunduğu klasörde (dizinde)** başlarsınız. Ekstra bir ayar yapmanıza gerek yoktur, doğrudan komutları yazabilirsiniz.
+
+**Yöntem 2: İşletim Sisteminden Harici Olarak Açmak**
+- **macOS:** Spotlight'a (Cmd+Space) `Terminal` yazıp açın.
+- **Windows:** Başlat menüsüne `cmd` veya `PowerShell` yazıp açın.
+- Dışarıdan terminal açtığınızda bilgisayarınızın ana klasöründe başlarsınız. Projeyi çalıştırabilmek için **önce projenin klasörüne gitmeniz gerekir**:
+
+```bash
+# Sadece harici terminal actiysaniz proje klasorune gidin:
+cd ~/.../penetration-testing-tool
+```
+
+### Testleri Çalıştırma
+
+Testler, kodun düzgün çalıştığını doğrular. Herhangi bir değişiklik yaptıktan sonra testleri çalıştırarak bozulan bir şey olup olmadığını kontrol edebilirsiniz.
+
+```bash
+# Tum testleri detayli ciktiyla calistir
+# -v (verbose) her testin adini ve sonucunu gosterir
+python3 -m pytest tests/ -v
+
+# Coverage (kod kapsama) raporu ile calistir
+# Hangi satirlarin test edilip edilmedigini gosterir
+python3 -m pytest tests/ --cov=src --cov-report=term-missing
+
+# Sadece tek bir modul testini calistir
+python3 -m pytest tests/test_sqlmap_config.py -v
+python3 -m pytest tests/test_validators.py -v
+```
+
+Çıktıda `115 passed` yazıyorsa her şey düzgün çalışıyor demektir ✅
+
+### Python İnteraktif Konsolundan Tarama Başlatma
+
+**Python interaktif konsolu** nedir? Terminal'e `python3` yazıp Enter'a bastığınızda açılan, Python komutlarını satır satır yazıp anında sonuç görebildiğiniz ortamdır. Başında `>>>` işareti görürsünüz.
+
+```bash
+# Harici bir terminal actiysaniz once proje klasorune girmelisiniz.
+# Eger klasore girmezseniz 'No module named src' hatasi alirsiniz.
+cd ~/.../penetration-testing-tool
+
+# Terminalde asagidaki komutu yazip enter'a basin:
+python3
+```
+
+Şimdi `>>>` işaretini göreceksiniz. Aşağıdaki kodun **tümünü kopyalayıp konsola yapıştırabilirsiniz** (veya sırayla yazıp çalışması beklenen sonuçları görebilirsiniz):
 
 ```python
 from src.scanners.sqlmap_scanner import SQLMapScanner
 from src.config.sqlmap_config import SQLMapConfig
 
 scanner = SQLMapScanner()
+# Sonucun 'True' donmesi sqlmap'in sorunsuz bulundugunu gosterir
+scanner.check_sqlmap_installed()  
 
+config = SQLMapConfig.quick_scan("http://testphp.vulnweb.com/listproducts.php?cat=1")
+result = scanner.scan(config)
+
+print(result.status)  # Cikti: completed
+print(result.vulnerability_count)  # Cikti: 4
+print(result.generate_summary())
+```
+
+Konsoldan çıkmak için `exit()` yazın veya `Ctrl+D` tuşlayın.
+
+### Tek Satırda Yapılandırmayı Kontrol Etme
+
+Interaktif konsola girmeden, terminalden direkt bir Python komutu çalıştırabilirsiniz:
+
+```bash
+# Harici bir terminal actiysaniz once proje klasorune girmelisiniz.
+python3 -c "
+from src.config.sqlmap_config import SQLMapConfig
+config = SQLMapConfig.quick_scan('http://testphp.vulnweb.com/listproducts.php?cat=1', dbms='mysql')
+print(config.to_command_string())
+"
+# Cikti: sqlmap -u 'http://testphp.vulnweb.com/...' --dbms 'mysql' --batch --level '1' ...
+```
+
+---
+
+## 💻 Python Kodunda Modül Olarak Kullanım (Geliştiriciler İçin)
+
+> **Kimler için?** Modülü kendi Python kodunda kullanmak isteyen **geliştiriciler** — örneğin web arayüzü (UI) entegrasyonu yapan Muhammed veya veritabanı katmanını bağlayan Nursena.
+
+Aşağıdaki örnekler bir `.py` dosyası içine yazılıp çalıştırılır veya Python interaktif konsolunda kullanılır.
+
+### Hızlı Tarama
+
+En basit kullanım — bir URL verin, sonucu alın:
+
+```python
+from src.scanners.sqlmap_scanner import SQLMapScanner
+from src.config.sqlmap_config import SQLMapConfig
+
+# Scanner nesnesi olustur (SQLMap'i otomatik bulur)
+scanner = SQLMapScanner()
+
+# quick_scan: Level 1, Risk 1 ile hizli tarama
 config = SQLMapConfig.quick_scan(
     url="http://testphp.vulnweb.com/listproducts.php?cat=1",
     dbms="mysql"
 )
 
+# Taramayi baslat ve sonucu al
 result = scanner.scan(config)
 
+# Sonuclari ekrana yazdir
 if result.is_vulnerable:
     print(f"{result.vulnerability_count} zafiyet bulundu!")
     print(result.generate_summary())
+else:
+    print("Zafiyet bulunamadi.")
 ```
 
-### Özel Yapılandırma ile Tarama
+### Gelişmiş Tarama (Özel Parametrelerle)
+
+Daha detaylı test için tüm parametreleri kendiniz ayarlayabilirsiniz:
 
 ```python
 config = SQLMapConfig(
-    target_url="http://hedef.com/login",
-    data="username=admin&password=test",
-    dbms="postgresql",
-    level=3,
-    risk=2,
-    techniques="BEUST",
-    threads=5,
+    target_url="http://hedef.com/login",       # Hedef sayfa
+    data="username=admin&password=test",        # POST form verisi
+    dbms="postgresql",                          # Veritabani turu
+    level=3,                                    # Test derinligi (1-5)
+    risk=2,                                     # Risk seviyesi (1-3)
+    techniques="BEUST",                         # Kullanilacak teknikler
+    threads=5,                                  # Ayni anda kac istek gonderilsin
 )
 result = scanner.scan(config)
 ```
 
 ### Hazır Profiller
 
+Her seferinde parametreleri tek tek yazmak yerine, hazır profiller kullanabilirsiniz:
+
 | Profil | Level | Risk | Teknikler | Ne Zaman Kullanılır |
 |--------|-------|------|-----------|---------------------|
-| `quick_scan()` | 1 | 1 | BE | Hızlı keşif |
-| `standard_scan()` | 3 | 2 | BEUST | Günlük tarama |
-| `deep_scan()` | 5 | 3 | BEUSTQ | Kapsamlı denetim |
-| `post_scan()` | 3 | 2 | BEUST | Form/Login testi |
+| `quick_scan()` | 1 | 1 | BE | İlk deneme, hızlı keşif |
+| `standard_scan()` | 3 | 2 | BEUST | Normal günlük tarama |
+| `deep_scan()` | 5 | 3 | BEUSTQ | Tam kapsamlı denetim |
+| `post_scan()` | 3 | 2 | BEUST | Login formu testi |
 
 ### Sonuçları Raporlama Modülüne Aktarma
 
-```python
-# Veritabani tablolarina uyumlu kayitlar
-db_records = result.to_db_records()
-# db_records["scan"]            → SCANS tablosu
-# db_records["vulnerabilities"] → VULNERABILITIES tablosu
-# db_records["report"]          → REPORTS tablosu
+Tarama sonuçları, Nursena'nın veritabanı tablolarına doğrudan aktarılabilir:
 
-# Diger formatlar
-result.to_json()            # JSON string
-result.to_report_dict()     # Raporlama sozlugu
-result.generate_summary()   # Turkce metin ozeti
+```python
+# Veritabani tablolarina uyumlu kayitlar uret
+db_records = result.to_db_records()
+# db_records["scan"]            → SCANS tablosuna yazilacak veri
+# db_records["vulnerabilities"] → VULNERABILITIES tablosuna yazilacak veri
+# db_records["report"]          → REPORTS tablosuna yazilacak veri
+
+# JSON formatinda rapor (dosyaya kaydetmek veya API dondurmek icin)
+json_rapor = result.to_json()
+
+# Raporlama modulune aktarilacak sozluk
+rapor_sozlugu = result.to_report_dict()
+
+# Ekrana Turkce ozet yazdirma
+print(result.generate_summary())
 ```
 
 ---
