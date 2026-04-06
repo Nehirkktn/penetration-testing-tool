@@ -1,5 +1,8 @@
 # SQLMap Entegrasyon Modülü — Kullanım Kılavuzu
 
+> **Siber Savaşçılar** | Fırat Üniversitesi – Yazılım Mühendisliği Temelleri Projesi  
+> **Hazırlayan:** Muhammet Sefa Kozan | **Hafta:** 4 | **Son Teslim:** 9 Nisan 2026
+
 ## Bu Proje Ne İşe Yarıyor?
 
 Bu modül, **SQL Injection** zafiyetlerini otomatik olarak tespit eder. Arka planda [SQLMap](https://sqlmap.org/) aracını Python üzerinden çalıştırır, çıktısını okur ve yapılandırılmış sonuçlar üretir.

@@ -1,8 +1,8 @@
 <h1 align="center">Sızma Testi Otomasyon Aracı — Proje Yönetim Araçları Rehberi</h1>
 
-> **Proje:** Sızma Testi Aracı (Penetration Testing Tool)
-
-> **Hazırlayan:** Muhammet Sefa KOZAN
+> **Siber Savaşçılar** | Fırat Üniversitesi – Yazılım Mühendisliği Temelleri Projesi  
+> **Hazırlayan:** Muhammet Sefa Kozan | **Hafta:** 1 | **Son Teslim:** 
+12 Mart 2026
 
 > **Amaç:** Ekip üyelerinin Jira, Slack, GitHub ve GitHub Desktop araçlarını etkin kullanabilmesi  
 

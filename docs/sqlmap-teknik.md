@@ -1,7 +1,9 @@
 # SQLMap Entegrasyon Modülü — Teknik Detay
 
-**Geliştiren:** Muhammet Sefa Kozan
-**Teknolojiler:** Python 3.8+, SQLMap, subprocess
+> **Siber Savaşçılar** | Fırat Üniversitesi – Yazılım Mühendisliği Temelleri Projesi  
+> **Hazırlayan:** Muhammet Sefa Kozan | **Hafta:** 4 | **Son Teslim:** 9 Nisan 2026
+
+> **Teknolojiler:** Python 3.8+, SQLMap, subprocess
 
 ---
 
