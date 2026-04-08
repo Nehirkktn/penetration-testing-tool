@@ -1,0 +1,35 @@
+body {
+    margin: 0;
+    font-family: Arial;
+    display: flex;
+    background: #0f172a;
+    color: white;
+}
+.sidebar {
+    width: 220px;
+    background: #020617;
+    padding: 20px;
+    height: 100vh;
+}
+.sidebar h2 { color: #38bdf8; }
+.sidebar ul { list-style: none; padding: 0; }
+.sidebar li { padding: 10px; margin-top: 10px; cursor: pointer; }
+.sidebar li:hover { background: #1e293b; }
+.main { flex: 1; padding: 20px; }
+.card {
+    background: #020617;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+input { padding: 10px; width: 60%; }
+button {
+    padding: 10px;
+    background: #38bdf8;
+    border: none;
+    color: black;
+    cursor: pointer;
+}
+.high { color: red; }
+.medium { color: yellow; }
+.hidden { display: none; }

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Siber Savaşçılar Panel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>🛡️ CyberPanel</h2>
+    <ul>
+        <li onclick="showPage('dashboard')">Dashboard</li>
+        <li onclick="showPage('reports')">Raporlar</li>
+        <li onclick="showPage('tests')">Test Senaryoları</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <div id="dashboard" class="page">
+        <h1>🚀 Tarama Başlat</h1>
+        <div class="card">
+            <input type="text" placeholder="Hedef URL / IP giriniz">
+            <button onclick="startScan()">Taramayı Başlat</button>
+            <p id="status"></p>
+        </div>
+    </div>
+
+    <div id="reports" class="page hidden">
+        <h1>📊 Raporlar</h1>
+        <div class="card">
+            <p>example.com → <span class="high">HIGH</span></p>
+            <p>testsite.com → <span class="medium">MEDIUM</span></p>
+        </div>
+    </div>
+
+    <div id="tests" class="page hidden">
+        <h1>⚙️ Test Senaryoları</h1>
+        <div class="card">
+            <label><input type="checkbox"> SQL Injection</label><br>
+            <label><input type="checkbox"> XSS</label><br>
+            <label><input type="checkbox"> Port Scan</label>
+        </div>
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
