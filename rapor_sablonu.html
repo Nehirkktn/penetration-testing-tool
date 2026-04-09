@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Security | Zafiyet Analiz Raporu</title>
+    <style>
+        /* Kurumsal Dark Tema Değişkenleri */
+        :root {
+            --bg-base: #0b1120;
+            --bg-surface: #1e293b;
+            --bg-surface-hover: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+            --accent-color: #38bdf8;
+            
+            /* Risk Renkleri */
+            --risk-critical: #ef4444;
+            --risk-critical-bg: rgba(239, 68, 68, 0.1);
+            --risk-high: #f97316;
+            --risk-high-bg: rgba(249, 115, 22, 0.1);
+            --risk-medium: #eab308;
+            --risk-medium-bg: rgba(234, 179, 8, 0.1);
+            --risk-low: #22c55e;
+            --risk-low-bg: rgba(34, 197, 94, 0.1);
+
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* Üst Panel - Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+
+        .brand h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand p {
+            color: var(--accent-color);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .report-meta { text-align: right; }
+        
+        .confidential-badge {
+            display: inline-block;
+            background-color: var(--risk-critical-bg);
+            color: var(--risk-critical);
+            border: 1px solid var(--risk-critical);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+        }
+
+        .meta-details p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .meta-details strong { color: var(--text-primary); }
+
+        /* Tarama Bilgileri Grid */
+        .scan-info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 1.25rem;
+            border-radius: 0.5rem;
+        }
+
+        .info-card span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-card strong { font-family: var(--font-mono); font-size: 1rem; }
+
+        /* Risk İstatistikleri */
+        .risk-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-box {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-top: 4px solid;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+
+        .stat-box[data-risk="critical"] { border-top-color: var(--risk-critical); }
+        .stat-box[data-risk="high"] { border-top-color: var(--risk-high); }
+        .stat-box[data-risk="medium"] { border-top-color: var(--risk-medium); }
+        .stat-box[data-risk="low"] { border-top-color: var(--risk-low); }
+
+        .stat-value { font-size: 2.5rem; font-weight: 700; line-height: 1; margin-bottom: 0.5rem; }
+        .stat-label { font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; }
+
+        /* Zafiyet Detayları (Akordeon Yapısı) */
+        .section-title {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        details.vuln-item {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        summary.vuln-header {
+            padding: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            list-style: none;
+            transition: background-color 0.2s ease;
+        }
+
+        summary.vuln-header::-webkit-details-marker { display: none; }
+        summary.vuln-header:hover { background-color: var(--bg-surface-hover); }
+
+        details.vuln-item[open] summary.vuln-header {
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-surface-hover);
+        }
+
+        .vuln-title-wrapper { display: flex; align-items: center; gap: 1rem; }
+        
+        .vuln-name { font-size: 1.125rem; font-weight: 600; }
+        
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        .badge-critical { background-color: var(--risk-critical-bg); color: var(--risk-critical); border: 1px solid var(--risk-critical); }
+        .badge-medium { background-color: var(--risk-medium-bg); color: var(--risk-medium); border: 1px solid var(--risk-medium); }
+        .badge-cvss { background-color: #3b82f620; color: #60a5fa; border: 1px solid #3b82f6; }
+
+        .vuln-body { padding: 1.5rem; display: grid; gap: 1.5rem; }
+
+        .detail-group h4 {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        .detail-group p { font-size: 0.95rem; color: #cbd5e1; }
+
+        .code-block {
+            background-color: var(--bg-base);
+            padding: 0.75rem;
+            border-radius: 0.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--accent-color);
+            border: 1px solid var(--border-color);
+            display: inline-block;
+        }
+
+        /* Buton Alanı */
+        .action-area {
+            margin-top: 3rem;
+            text-align: right;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: var(--bg-base);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover { opacity: 0.9; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <header>
+        <div class="brand">
+            <h1>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-color);">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                CoreScanner Enterprise
+            </h1>
+            <p>Otomatize Zafiyet Analiz Raporu</p>
+        </div>
+        <div class="report-meta">
+            <div class="confidential-badge">GİZLİ / KİŞİYE ÖZEL</div>
+            <div class="meta-details">
+                <p>Rapor ID: <strong>REP-2026-04-09A</strong></p>
+                <p>Tarih: <strong>09 Nis 2026, 19:48</strong></p>
+            </div>
+        </div>
+    </header>
+
+    <div class="scan-info-grid">
+        <div class="info-card">
+            <span>Hedef Sistem</span>
+            <strong>192.168.1.55</strong>
+        </div>
+        <div class="info-card">
+            <span>Tarama Tipi</span>
+            <strong>Derin Ağ & Web Taraması</strong>
+        </div>
+        <div class="info-card">
+            <span>Tarama Süresi</span>
+            <strong>00:04:12</strong>
+        </div>
+        <div class="info-card">
+            <span>Kullanılan Motorlar</span>
+            <strong>Nmap, SQLMap v1.8</strong>
+        </div>
+    </div>
+
+    <div class="risk-stats">
+        <div class="stat-box" data-risk="critical">
+            <div class="stat-value" style="color: var(--risk-critical);">1</div>
+            <div class="stat-label">Kritik Risk</div>
+        </div>
+        <div class="stat-box" data-risk="high">
+            <div class="stat-value" style="color: var(--risk-high);">0</div>
+            <div class="stat-label">Yüksek Risk</div>
+        </div>
+        <div class="stat-box" data-risk="medium">
+            <div class="stat-value" style="color: var(--risk-medium);">1</div>
+            <div class="stat-label">Orta Risk</div>
+        </div>
+        <div class="stat-box" data-risk="low">
+            <div class="stat-value" style="color: var(--risk-low);">2</div>
+            <div class="stat-label">Düşük Risk</div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Teknik Bulgu Detayları (İncelemek için tıklayın)</h2>
+
+    <details class="vuln-item">
+        <summary class="vuln-header">
+            <div class="vuln-title-wrapper">
+                <span class="badge badge-critical">KRİTİK</span>
+                <span class="vuln-name">SQL Injection (Blind) Tespit Edildi</span>
+            </div>
+            <span class="badge badge-cvss">CVSS 3.1: 9.8</span>
+        </summary>
+        <div class="vuln-body">
+            <div class="detail-group">
+                <h4>Etkilenen Kaynak (Endpoint / Parametre)</h4>
+                <div class="code-block">POST http://192.168.1.55/login.php -> 'username' parametresi</div>
+            </div>
+            <div class="detail-group">
+                <h4>Açıklama ve Etki Analizi (CWE-89)</h4>
+                <p>Sistemin kimlik doğrulama mekanizmasında, kullanıcıdan alınan veriler temizlenmeden (sanitize edilmeden) doğrudan veritabanı sorgusuna dahil edilmektedir. Bu durum, saldırganın zararlı SQL komutları çalıştırarak sistemdeki tüm veritabanı tablolarını okumasına, değiştirmesine veya silmesine olanak tanır.</p>
+            </div>
+            <div class="detail-group">
+                <h4>Çözüm Önerisi (Remediation)</h4>
+                <p>Uygulama kodunda doğrudan string birleştirme yöntemleri kullanılmamalıdır. Bunun yerine, kullanılan programlama dilinin sunduğu "Prepared Statements" (Parametrik Sorgular) veya ORM kütüphaneleri tercih edilmelidir.</p>
+            </div>
+        </div>
+    </details>
+
+    <details class="vuln-item">
+        <summary class="vuln-header">
+            <div class="vuln-title-wrapper">
+                <span class="badge badge-medium">ORTA</span>
+                <span class="vuln-name">Şifrelenmemiş İletişim (Açık FTP Servisi)</span>
+            </div>
+            <span class="badge badge-cvss">CVSS 3.1: 5.3</span>
+        </summary>
+        <div class="vuln-body">
+            <div class="detail-group">
+                <h4>Etkilenen Kaynak (Port / Servis)</h4>
+                <div class="code-block">TCP Port: 21 (Servis: vsftpd 2.3.4)</div>
+            </div>
+            <div class="detail-group">
+                <h4>Açıklama ve Etki Analizi (CWE-319)</h4>
+                <p>Sunucu üzerinde FTP protokolü aktiftir. FTP, ağ trafiğini şifrelemeden (clear-text) iletir. Aynı ağda bulunan bir saldırgan, paket dinleme (sniffing) teknikleriyle dosya transferlerini ve kullanıcı giriş bilgilerini kolayca ele geçirebilir.</p>
+            </div>
+            <div class="detail-group">
+                <h4>Çözüm Önerisi (Remediation)</h4>
+                <p>Eğer zorunlu değilse 21 numaralı port güvenlik duvarı (Firewall) üzerinden kapatılmalıdır. Dosya transferi gerekiyorsa iletişim kanalını şifreleyen SFTP (SSH üzerinden) veya FTPS kullanılmalıdır.</p>
+            </div>
+        </div>
+    </details>
+
+    <div class="action-area">
+        <button class="btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Raporu PDF Olarak Dışa Aktar
+        </button>
+    </div>
+
+</div>
+
+</body>
+</html>
