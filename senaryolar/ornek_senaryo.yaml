@@ -1,0 +1,20 @@
+id: temel-baglanti-testi
+info:
+  name: "Temel Bağlantı ve İçerik Kontrolü"
+  author: "MBB"
+  severity: "Low"
+  description: "Hedef sitenin ayakta olup olmadığını ve ana sayfasında belirli kelimelerin geçip geçmediğini test eder."
+
+requests:
+  - method: GET
+    path:
+      - "{{target_url}}/"
+    
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        words:
+          - "Example"
+          - "Domain"
