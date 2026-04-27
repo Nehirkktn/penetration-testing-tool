@@ -157,7 +157,6 @@
 - Veritabanı dosyası `siber_savascılar.db` Türkçe karakter (`ı`) içeriyor; bazı işletim sistemlerinde dosya yolu sorununa yol açabilir.
 
 ### 6.2 Mimari Tutarsızlıklar
-- Nursena'nın `veritabani-semasi.md`'de tasarladığı 5 tablo (USERS, SCAN_CONFIGS, SCANS, VULNERABILITIES, REPORTS) ile `database.py`'de implement edilen 2 tablo (taramalar, zafiyetler) uyumsuz.
 - Sefa'nın `ScanResult` modeli ile Nursena'nın veritabanı şeması henüz entegre edilmemiş; her iki bileşen bağımsız çalışmaktadır.
 - Muhammed'in YAML senaryo motoru ile Nursena'nın ana tarama orkestratörü birbirine bağlanmamıştır.
 
