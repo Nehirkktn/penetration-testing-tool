@@ -4,9 +4,18 @@ Siber Savascilar — Giris Dogrulama Araclari
 
 SQLMap tarama parametrelerinin dogrulanmasi icin yardimci siniflar.
 URL formati, DBMS destegi, parametre sanitizasyonu gibi kontrolleri yonetir.
+
+Guvenlik Notlari (Hafta 6 — Guvenlik Acigi Giderme):
+    - SSRF korumasi: Ozel/dahili IP araliklari opsiyonel olarak engellenir.
+    - CRLF injection: Header/Cookie degerlerinde satir sonu karakteri reddedilir.
+    - Path traversal: output_dir mutlak/normalize edilmis yol disina cikamaz.
+    - SQLMap argument injection: Tehlikeli SQLMap bayraklari (--eval, --os-cmd
+      vb.) deny-list ile engellenir.
 """
 
 import re
+import ipaddress
+import os
 from urllib.parse import urlparse, parse_qs
 from typing import List, Optional, Tuple
 
@@ -14,7 +23,7 @@ from typing import List, Optional, Tuple
 class URLValidator:
     """
     URL dogrulama ve analiz sinifi.
-    
+
     SQLMap'e gonderilecek hedef URL'lerin dogrulugunu kontrol eder
     ve SQL injection testi icin uygun olup olmadigini degerlendirir.
     """
@@ -28,27 +37,27 @@ class URLValidator:
         r"[?&]\w+=\d+",          # Sayisal parametre (en yaygin injection hedefi)
     ]
 
+    # ─────────────────────────────────────────────────────────────────────
+    # Format Dogrulama
+    # ─────────────────────────────────────────────────────────────────────
+
     @classmethod
     def validate_url(cls, url: str) -> Tuple[bool, str]:
         """
-        URL'nin gecerliligini kontrol eder.
-        
-        Args:
-            url: Dogrulanacak URL string'i.
-            
-        Returns:
-            (is_valid, message) tuple'i.
-            
-        Examples:
-            >>> URLValidator.validate_url("http://example.com/page?id=1")
-            (True, "URL gecerli.")
-            >>> URLValidator.validate_url("ftp://example.com")
-            (False, "Desteklenmeyen protokol: ftp. Desteklenen: http, https")
+        URL'nin format/sentaks acisindan gecerliligini kontrol eder.
+
+        Bu metod yalnizca FORMAT dogrulamasi yapar. Hedefin dahili/ozel
+        bir IP olup olmadigini kontrol etmez. SSRF korumasi icin
+        `validate_safe_target()` metodunu kullanin.
         """
         if not url or not isinstance(url, str):
             return False, "URL bos veya gecersiz tip."
 
         url = url.strip()
+
+        # Whitespace / kontrol karakteri kontrolu (CRLF injection onleme)
+        if cls._has_control_chars(url):
+            return False, "URL kontrol karakteri (CR/LF/NUL) icermektedir."
 
         # URL parse
         try:
@@ -72,6 +81,7 @@ class URLValidator:
 
         # Temel hostname format kontrolu
         hostname = parsed.hostname
+
         # IP adresi mi yoksa domain mi?
         ip_pattern = re.compile(
             r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$"
@@ -105,20 +115,109 @@ class URLValidator:
         parsed = urlparse(url)
         return parse_qs(parsed.query)
 
+    # ─────────────────────────────────────────────────────────────────────
+    # SSRF / Dahili Hedef Dogrulamasi (CWE-918)
+    # ─────────────────────────────────────────────────────────────────────
+
+    # Bilinen tehlikeli host isimleri
+    _DANGEROUS_HOSTNAMES = {
+        "localhost",
+        "ip6-localhost",
+        "ip6-loopback",
+        "metadata.google.internal",   # GCP metadata
+        "metadata",                    # Docker / cloud metadata
+    }
+
+    @classmethod
+    def is_private_or_internal_ip(cls, hostname: str) -> bool:
+        """
+        Verilen hostname veya IP'nin ozel/dahili bir adres olup olmadigini
+        kontrol eder. SSRF (CWE-918) saldirilarinin onlenmesi icin kullanilir.
+
+        Engellenen araliklar:
+            - 127.0.0.0/8       (loopback)
+            - 10.0.0.0/8        (RFC 1918 ozel)
+            - 172.16.0.0/12     (RFC 1918 ozel)
+            - 192.168.0.0/16    (RFC 1918 ozel)
+            - 169.254.0.0/16    (link-local — AWS metadata 169.254.169.254 dahil)
+            - 0.0.0.0/8         (yerel ag)
+            - ::1/128           (IPv6 loopback)
+            - fc00::/7          (IPv6 unique local)
+            - fe80::/10         (IPv6 link-local)
+
+        Args:
+            hostname: Hostname veya IP adresi.
+
+        Returns:
+            True: Dahili/ozel adres. False: Public/disaridan erisilebilir.
+        """
+        if not hostname:
+            return False
+
+        hostname_lower = hostname.lower().strip("[]")
+
+        # Bilinen tehlikeli isimler
+        if hostname_lower in cls._DANGEROUS_HOSTNAMES:
+            return True
+
+        # IP adresi olarak parse etmeye calis
+        try:
+            ip = ipaddress.ip_address(hostname_lower)
+        except ValueError:
+            # Bir IP degil — domain. DNS-rebinding korumasi uygulama
+            # katmaninin sorumlulugundadir. Burada sadece literal IP'leri
+            # ve ozel hostname'leri kontrol ediyoruz.
+            return False
+
+        # IP'nin ozel/dahili olup olmadigini kontrol et
+        return (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        )
+
+    @classmethod
+    def validate_safe_target(
+        cls, url: str, allow_internal: bool = False
+    ) -> Tuple[bool, str]:
+        """
+        URL'yi hem format hem de SSRF guvenligi acisindan dogrular.
+
+        Args:
+            url:            Dogrulanacak hedef URL.
+            allow_internal: True ise dahili/ozel IP'lere izin verilir.
+                            Yerel test ortamlari icin kullanilir; uretim
+                            ortaminda asla True olmamalidir.
+
+        Returns:
+            (is_safe, message) tuple'i.
+        """
+        is_valid, msg = cls.validate_url(url)
+        if not is_valid:
+            return False, msg
+
+        if allow_internal:
+            return True, "URL gecerli (dahili hedeflere izin verildi)."
+
+        parsed = urlparse(url)
+        if cls.is_private_or_internal_ip(parsed.hostname or ""):
+            return False, (
+                f"Guvenlik politikasi: '{parsed.hostname}' dahili/ozel bir "
+                f"adres oldugu icin tarama hedefi olarak kabul edilmedi. "
+                f"Bu kontrol SSRF saldirilarini ve cloud metadata "
+                f"sizdirmasini onler. Yerel testler icin "
+                f"`allow_internal_targets=True` parametresini acikca verin."
+            )
+
+        return True, "URL guvenli ve disa donuk bir hedef."
+
     @classmethod
     def validate_for_sqli_test(cls, url: str) -> Tuple[bool, str]:
         """
         URL'nin SQL injection testi icin uygun olup olmadigini kontrol eder.
-        
-        Uygunluk kriterleri:
-        - Gecerli URL formati
-        - Query string parametresi bulunmasi (onerilen)
-        
-        Args:
-            url: Test edilecek URL.
-            
-        Returns:
-            (is_suitable, message) tuple'i.
         """
         is_valid, msg = cls.validate_url(url)
         if not is_valid:
@@ -138,19 +237,25 @@ class URLValidator:
             f"Bulunan parametreler: {', '.join(param_names)}"
         )
 
+    # ─────────────────────────────────────────────────────────────────────
+    # Yardimcilar
+    # ─────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _has_control_chars(value: str) -> bool:
+        """Kontrol karakterlerini (CR/LF/NUL) tespit eder."""
+        return any(c in value for c in ("\r", "\n", "\x00"))
+
 
 class ConfigValidator:
     """
     SQLMap yapilandirma parametrelerinin dogrulanmasi.
-    
-    Kullanicinin girdigi yapilandirma degerlerinin SQLMap tarafindan
-    desteklenip desteklenmedigini kontrol eder.
     """
 
     # SQLMap'in destekledigi DBMS listesi
     SUPPORTED_DBMS = [
         "mysql",
-        "oracle", 
+        "oracle",
         "postgresql",
         "microsoft sql server",
         "mssql",
@@ -180,7 +285,6 @@ class ConfigValidator:
         "virtuoso",
     ]
 
-    # DBMS kisaltma eslemeleri
     DBMS_ALIASES = {
         "mssql": "microsoft sql server",
         "db2": "ibm db2",
@@ -191,44 +295,63 @@ class ConfigValidator:
         "mariadb": "mysql",
     }
 
-    # SQLMap injection teknikleri
     VALID_TECHNIQUES = "BEUSTQ"
-
-    # Risk seviye araligi
     RISK_RANGE = (1, 3)
-
-    # Level araligi
     LEVEL_RANGE = (1, 5)
-
-    # Gecerli HTTP metodlari
     VALID_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"]
+
+    # ─────────────────────────────────────────────────────────────────────
+    # SQLMap Tehlikeli Argumanlari (CWE-88: Argument Injection)
+    # ─────────────────────────────────────────────────────────────────────
+    #
+    # Bu bayraklar SQLMap'in yetkisiz dosya okuma/yazma, komut calistirma
+    # ve diger sistem seviyesi islemler yapabilmesine olanak tanir. Akademik
+    # araclarda asla kullanici tarafindan tetiklenmemelidir.
+    #
+    # Kaynak: SQLMap kullanim kilavuzu (--help) ve OWASP zafiyet listesi.
+
+    BLOCKED_SQLMAP_ARGS = frozenset({
+        # Kod / komut calistirma
+        "--eval",
+        "--os-cmd",
+        "--os-shell",
+        "--os-pwn",
+        "--os-smbrelay",
+        "--os-bof",
+        "--priv-esc",
+        # Dosya islemi
+        "--file-read",
+        "--file-write",
+        "--file-dest",
+        "--shared-lib",
+        # SQLMap kendisini yeniden yapilandirma / zayiflatma
+        "--load-cookies",
+        "--proxy-cred",
+        "--auth-cred",
+        "--auth-file",
+        # Wizard mode (interaktif)
+        "--wizard",
+        # SQLMap'in kendisini guncelleme
+        "--update",
+        "--purge",
+        "--purge-output",
+    })
 
     @classmethod
     def validate_dbms(cls, dbms: str) -> Tuple[bool, str]:
-        """
-        DBMS degerinin SQLMap tarafindan desteklenip desteklenmedigini kontrol eder.
-        
-        Args:
-            dbms: Veritabani sistemi adi.
-            
-        Returns:
-            (is_valid, normalized_dbms_or_error_message) tuple'i.
-        """
+        """DBMS dogrulamasi."""
         if not dbms:
-            return True, ""  # Bos birakilabilir (SQLMap otomatik tespit eder)
+            return True, ""
 
         dbms_lower = dbms.strip().lower()
 
-        # Alias kontrolu
         if dbms_lower in cls.DBMS_ALIASES:
             resolved = cls.DBMS_ALIASES[dbms_lower]
             return True, resolved
 
-        # Dogrudan destek kontrolu
         if dbms_lower in cls.SUPPORTED_DBMS:
             return True, dbms_lower
 
-        # Yakin eslesme onerisi
         suggestions = [
             d for d in cls.SUPPORTED_DBMS
             if dbms_lower in d or d in dbms_lower
@@ -246,17 +369,9 @@ class ConfigValidator:
 
     @classmethod
     def validate_techniques(cls, techniques: str) -> Tuple[bool, str]:
-        """
-        SQLMap injection teknik string'ini dogrular.
-        
-        Args:
-            techniques: Teknik harfleri (or: "BEU", "BEUSTQ").
-            
-        Returns:
-            (is_valid, message) tuple'i.
-        """
+        """SQLMap injection teknik string'ini dogrular."""
         if not techniques:
-            return True, ""  # Bos = tum teknikler
+            return True, ""
 
         techniques_upper = techniques.upper()
         invalid_chars = [
@@ -321,23 +436,20 @@ class ConfigValidator:
     def sanitize_parameter(cls, param: str) -> str:
         """
         Parametre degerini sanitize eder.
-        Tehlikeli shell karakterlerini temizler.
-        
-        Args:
-            param: Ham parametre string'i.
-            
-        Returns:
-            Temizlenmis parametre string'i.
+
+        DERINLIKLI SAVUNMA: Asagidaki guvenli karakter beyaz listesi (whitelist)
+        haricindeki tum karakterler temizlenir. SQLMap'e parametre olarak
+        yalnizca harf, rakam, alt cizgi ve virgul gecirilebilir.
+
+        Onceki versiyondaki "kara liste" yaklasimi tum tehlikeli karakterleri
+        kapsamadigi icin shell injection'a karsi tam koruma saglamiyordu.
         """
         if not param:
             return ""
 
-        # Shell injection'a karsi tehlikeli karakterleri kaldir
-        dangerous_chars = [";", "|", "&", "`", "$", "(", ")", "{", "}", "<", ">", "\\", "\n", "\r"]
-        sanitized = param
-        for char in dangerous_chars:
-            sanitized = sanitized.replace(char, "")
-
+        # Beyaz liste: harf, rakam, alt cizgi, virgul (cok parametre icin)
+        allowed = re.compile(r"[^A-Za-z0-9_,]")
+        sanitized = allowed.sub("", param)
         return sanitized.strip()
 
     @classmethod
@@ -350,3 +462,211 @@ class ConfigValidator:
         if timeout > 3600:
             return False, "Timeout en fazla 3600 saniye (1 saat) olabilir."
         return True, f"Timeout: {timeout} saniye"
+
+    # ─────────────────────────────────────────────────────────────────────
+    # YENI: Header / Cookie / POST Veri Dogrulamasi (CWE-93: CRLF Injection)
+    # ─────────────────────────────────────────────────────────────────────
+
+    # Gecerli HTTP header adi: RFC 7230 — token = 1*tchar
+    _HEADER_NAME_PATTERN = re.compile(r"^[A-Za-z0-9!#$%&'*+\-.^_`|~]+$")
+
+    @classmethod
+    def validate_header(cls, name: str, value: str) -> Tuple[bool, str]:
+        """
+        HTTP header adi ve degerinin guvenliligini dogrular.
+
+        - Header adi RFC 7230 token kuralina uymali.
+        - Deger CR/LF/NUL karakteri icermemelidir (CRLF injection / response
+          splitting saldirilarini onlemek icin).
+        """
+        if not name or not isinstance(name, str):
+            return False, "Header adi bos olamaz."
+
+        if not cls._HEADER_NAME_PATTERN.match(name):
+            return False, (
+                f"Gecersiz header adi: '{name}'. "
+                f"Yalnizca RFC 7230 token karakterleri kabul edilir."
+            )
+
+        if value is None:
+            return False, "Header degeri None olamaz."
+
+        if not isinstance(value, str):
+            return False, "Header degeri string olmalidir."
+
+        if any(c in value for c in ("\r", "\n", "\x00")):
+            return False, (
+                f"Header '{name}' icin gecersiz deger: CR/LF/NUL karakteri "
+                f"icermektedir (CRLF injection riski)."
+            )
+
+        return True, "Header gecerli."
+
+    @classmethod
+    def validate_cookie(cls, value: str) -> Tuple[bool, str]:
+        """Cookie degerinin CR/LF/NUL icermedigini dogrular."""
+        if not value:
+            return True, ""
+        if not isinstance(value, str):
+            return False, "Cookie degeri string olmalidir."
+        if any(c in value for c in ("\r", "\n", "\x00")):
+            return False, (
+                "Cookie degeri CR/LF/NUL karakteri icermektedir "
+                "(CRLF injection riski)."
+            )
+        return True, "Cookie gecerli."
+
+    @classmethod
+    def validate_data(cls, data: str) -> Tuple[bool, str]:
+        """POST veri govdesinin CR/LF/NUL icermedigini dogrular."""
+        if not data:
+            return True, ""
+        if not isinstance(data, str):
+            return False, "POST verisi string olmalidir."
+        if any(c in data for c in ("\r", "\n", "\x00")):
+            return False, (
+                "POST verisi CR/LF/NUL karakteri icermektedir "
+                "(istek govdesi enjeksiyon riski)."
+            )
+        return True, "POST verisi gecerli."
+
+    # ─────────────────────────────────────────────────────────────────────
+    # YENI: Proxy URL Dogrulamasi
+    # ─────────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def validate_proxy(cls, proxy: str) -> Tuple[bool, str]:
+        """
+        Proxy URL'sinin gecerliligini dogrular.
+
+        Sadece http://, https://, socks4://, socks5:// kabul edilir.
+        Kontrol karakterleri reddedilir.
+        """
+        if not proxy:
+            return True, ""
+
+        if not isinstance(proxy, str):
+            return False, "Proxy degeri string olmalidir."
+
+        if any(c in proxy for c in ("\r", "\n", "\x00", " ")):
+            return False, "Proxy URL'si bosluk veya kontrol karakteri icermemelidir."
+
+        try:
+            parsed = urlparse(proxy)
+        except Exception as e:
+            return False, f"Proxy URL ayristirma hatasi: {str(e)}"
+
+        valid_schemes = ("http", "https", "socks4", "socks5")
+        if parsed.scheme.lower() not in valid_schemes:
+            return False, (
+                f"Gecersiz proxy semasi: '{parsed.scheme}'. "
+                f"Gecerli: {', '.join(valid_schemes)}"
+            )
+
+        if not parsed.hostname:
+            return False, "Proxy URL'sinde host belirtilmemis."
+
+        return True, "Proxy URL'si gecerli."
+
+    # ─────────────────────────────────────────────────────────────────────
+    # YENI: Cikti Dizini Dogrulamasi (CWE-22: Path Traversal)
+    # ─────────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def validate_output_dir(cls, path: str) -> Tuple[bool, str]:
+        """
+        SQLMap output dizinin guvenli olup olmadigini dogrular.
+
+        Engellenen durumlar:
+            - Path traversal sekansi ('..')
+            - Hassas sistem dizinlerine yazma denemeleri (/etc, /root, vb.)
+            - NUL karakteri
+        """
+        if not path:
+            return True, ""
+
+        if not isinstance(path, str):
+            return False, "Output dizini string olmalidir."
+
+        if "\x00" in path:
+            return False, "Output dizininde NUL karakteri olamaz."
+
+        # Path traversal kontrolu — herhangi bir parcasi '..' olamaz
+        normalized_slashes = path.replace("\\", "/")
+        if ".." in normalized_slashes.split("/"):
+            return False, (
+                f"Output dizini '..' icermektedir (path traversal riski). "
+                f"Mutlak yol veya temiz goreceli yol kullanin."
+            )
+
+        # Mutlak yola normalize et
+        try:
+            normalized = os.path.normpath(os.path.abspath(path))
+        except Exception as e:
+            return False, f"Output dizini normalize edilemedi: {str(e)}"
+
+        # Hassas sistem dizinlerine yazmayi engelle
+        forbidden_prefixes = (
+            "/etc",
+            "/root",
+            "/boot",
+            "/proc",
+            "/sys",
+            "/dev",
+            "/var/log",
+        )
+        for prefix in forbidden_prefixes:
+            if normalized == prefix or normalized.startswith(prefix + os.sep):
+                return False, (
+                    f"Output dizini hassas sistem yoluna yazmaya calisiyor: "
+                    f"'{normalized}'. Bu yol engellenmektedir."
+                )
+
+        return True, "Output dizini gecerli."
+
+    # ─────────────────────────────────────────────────────────────────────
+    # YENI: SQLMap Custom Args Dogrulamasi (CWE-88)
+    # ─────────────────────────────────────────────────────────────────────
+
+    @classmethod
+    def validate_custom_args(cls, args: List[str]) -> Tuple[bool, str]:
+        """
+        Kullanici tarafindan saglanan SQLMap argumanlarinda tehlikeli
+        bayrak olup olmadigini kontrol eder.
+
+        BLOCKED_SQLMAP_ARGS listesindeki bir bayrak bulunursa hata doner.
+
+        Args:
+            args: SQLMap'e iletilecek argumanlar listesi.
+
+        Returns:
+            (is_valid, message) tuple'i.
+        """
+        if not args:
+            return True, ""
+
+        if not isinstance(args, list):
+            return False, "custom_args bir liste olmalidir."
+
+        for arg in args:
+            if not isinstance(arg, str):
+                return False, f"custom_args elemani string olmalidir: {arg!r}"
+
+            # Kontrol karakteri yasak
+            if any(c in arg for c in ("\r", "\n", "\x00")):
+                return False, (
+                    f"custom_args degeri kontrol karakteri icermektedir: {arg!r}"
+                )
+
+            # "--bayrak=value" formatini kontrol et — basini al
+            flag_part = arg.split("=", 1)[0].strip().lower()
+
+            if flag_part in cls.BLOCKED_SQLMAP_ARGS:
+                return False, (
+                    f"Guvenlik politikasi: '{flag_part}' bayragi yasaktir. "
+                    f"Bu bayrak SQLMap'in dosya okuma/yazma, komut calistirma "
+                    f"veya sistem seviyesi erisim saglamasini saglar ve "
+                    f"akademik tarama kapsami disindadir."
+                )
+
+        return True, "custom_args gecerli."

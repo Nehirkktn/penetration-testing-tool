@@ -129,6 +129,10 @@ class SQLMapConfig:
     # ── Ileri Duzey ──
     custom_args: List[str] = field(default_factory=list)
 
+    # ── Guvenlik Bayraklari (Hafta 6) ──
+    # SSRF korumasi: Dahili/ozel IP'lere tarama izni icin acikca True yapin.
+    allow_internal_targets: bool = False
+
     # ─────────────────────────────────────────────────────────────────────
     # Dogrulama
     # ─────────────────────────────────────────────────────────────────────
@@ -145,11 +149,14 @@ class SQLMapConfig:
         """
         errors = []
 
-        # URL kontrolu (zorunlu)
+        # URL kontrolu (zorunlu) — Format + SSRF koruması
         if not self.target_url:
             errors.append("target_url zorunludur.")
         else:
-            is_valid, msg = URLValidator.validate_url(self.target_url)
+            is_valid, msg = URLValidator.validate_safe_target(
+                self.target_url,
+                allow_internal=self.allow_internal_targets,
+            )
             if not is_valid:
                 errors.append(f"URL hatasi: {msg}")
 
@@ -190,6 +197,45 @@ class SQLMapConfig:
             is_valid, msg = ConfigValidator.validate_timeout(self.timeout)
             if not is_valid:
                 errors.append(f"Timeout hatasi: {msg}")
+
+        # ── YENI: Hafta 6 Guvenlik Kontrolleri ──
+
+        # Cookie kontrolu (CRLF injection)
+        if self.cookie:
+            is_valid, msg = ConfigValidator.validate_cookie(self.cookie)
+            if not is_valid:
+                errors.append(f"Cookie hatasi: {msg}")
+
+        # POST data kontrolu
+        if self.data:
+            is_valid, msg = ConfigValidator.validate_data(self.data)
+            if not is_valid:
+                errors.append(f"Data hatasi: {msg}")
+
+        # Header kontrolu
+        if self.headers:
+            for h_name, h_value in self.headers.items():
+                is_valid, msg = ConfigValidator.validate_header(h_name, h_value)
+                if not is_valid:
+                    errors.append(f"Header hatasi: {msg}")
+
+        # Proxy kontrolu
+        if self.proxy:
+            is_valid, msg = ConfigValidator.validate_proxy(self.proxy)
+            if not is_valid:
+                errors.append(f"Proxy hatasi: {msg}")
+
+        # Output dizini kontrolu (path traversal)
+        if self.output_dir:
+            is_valid, msg = ConfigValidator.validate_output_dir(self.output_dir)
+            if not is_valid:
+                errors.append(f"Output dizini hatasi: {msg}")
+
+        # Custom args kontrolu (argument injection)
+        if self.custom_args:
+            is_valid, msg = ConfigValidator.validate_custom_args(self.custom_args)
+            if not is_valid:
+                errors.append(f"custom_args hatasi: {msg}")
 
         return errors
 

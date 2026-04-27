@@ -350,8 +350,16 @@ class SQLMapOutputParser:
                     try:
                         vulns = self.parse_log_file(file_path)
                         all_vulns.extend(vulns)
-                    except Exception:
-                        pass
+                    except Exception as parse_err:
+                        # Tek bir log dosyasini parse edememek tum sonucu
+                        # bozmamali — diger dosyalari denemeye devam et.
+                        # Sessizce gomemek icin standart hata kanalina yaz.
+                        import sys
+                        print(
+                            f"[parser] Log dosyasi parse edilemedi: "
+                            f"{file_path} — {parse_err}",
+                            file=sys.stderr,
+                        )
 
         result.vulnerabilities = all_vulns
         result.status = ScanStatus.COMPLETED

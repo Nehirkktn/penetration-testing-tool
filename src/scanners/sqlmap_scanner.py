@@ -88,8 +88,24 @@ class SQLMapScanner:
     # Varsayilan tarama suresi limiti (saniye)
     DEFAULT_SCAN_TIMEOUT = 300  # 5 dakika
 
+    # Es zamanli devam edebilen maksimum asenkron tarama sayisi.
+    # CWE-770: Resource exhaustion (DoS) korumasi icin sinirlanmistir.
+    MAX_ACTIVE_SCANS = 5
+
     # SQLMap'i bulma yollari
     SQLMAP_EXECUTABLES = ["sqlmap", "sqlmap.py", "python sqlmap.py"]
+
+    # Komut satirinda hassas veri tasiyabilen bayraklar.
+    # Loglara/raporlara yazilirken bu bayraklarin degerleri maskelenir.
+    _SENSITIVE_FLAGS = frozenset({
+        "--cookie",
+        "--data",
+        "--header",
+        "--headers",
+        "--auth-cred",
+        "--proxy-cred",
+        "-H",
+    })
 
     def __init__(
         self,
@@ -120,14 +136,19 @@ class SQLMapScanner:
     def _find_sqlmap(self) -> Optional[str]:
         """
         Sistemde SQLMap'i arar.
-        
+
+        Bulunan yol her zaman MUTLAK ve sembolik baglarindan cozulmus
+        (realpath) olarak doner. Bu, calistirma aninda PATH manipulasyonu
+        veya symlink degistirme yoluyla yapilan saldirilara karsi koruma
+        saglar (CWE-367 / CWE-426).
+
         Returns:
             SQLMap'in tam yolu veya None.
         """
         # 1. PATH'te ara
         sqlmap_path = shutil.which("sqlmap")
         if sqlmap_path:
-            return sqlmap_path
+            return self._resolve_executable(sqlmap_path)
 
         # 2. Yaygin kurulum konumlarini kontrol et
         common_paths = [
@@ -141,10 +162,13 @@ class SQLMapScanner:
 
         for path in common_paths:
             if os.path.isfile(path) and os.access(path, os.X_OK):
-                return path
+                return self._resolve_executable(path)
 
         # 3. Python modulu olarak kontrol et
         try:
+            # Bandit B607: kasti olarak python3 ismini kullaniyoruz; sqlmap
+            # bir Python modulu oldugu icin yorumlayicidan calistirilmasi
+            # gerekiyor. Yorumlayici yolu sistem PATH'inden alinir.
             result = subprocess.run(
                 ["python3", "-m", "sqlmap", "--version"],
                 capture_output=True,
@@ -157,6 +181,24 @@ class SQLMapScanner:
             pass
 
         return None
+
+    @staticmethod
+    def _resolve_executable(path: str) -> str:
+        """
+        Bir calistirilabilir yolu mutlak ve realpath olarak normalize eder.
+
+        Bu, asagidaki saldiri vektorlerine karsi koruma saglar:
+            - PATH manipulasyonu
+            - Sembolik bag (symlink) degistirme
+            - Goreceli yol istismari
+        """
+        try:
+            absolute = os.path.abspath(path)
+            real = os.path.realpath(absolute)
+            return real
+        except Exception:
+            # Cok nadir bir hatada orijinal yolu donder
+            return path
 
     def check_sqlmap_installed(self) -> bool:
         """
@@ -193,7 +235,8 @@ class SQLMapScanner:
                 timeout=10,
             )
             return result.stdout.strip()
-        except Exception:
+        except Exception as ver_err:
+            logger.debug("SQLMap surumu okunamadi: %s", ver_err)
             return None
 
     # ─────────────────────────────────────────────────────────────────────
@@ -261,16 +304,18 @@ class SQLMapScanner:
         # Komut olustur
         cmd = self._build_base_command() + scan_config.to_command_args()
         cmd_string = " ".join(cmd)
+        redacted_cmd = self._redact_command(cmd)
 
         logger.info("SQLMap taramasi baslatiliyor: %s", config.target_url)
-        logger.debug("Komut: %s", cmd_string)
+        # CWE-532: Hassas verileri loga yazmiyoruz; redacted versiyon kullaniyoruz
+        logger.debug("Komut (maskelenmis): %s", redacted_cmd)
 
-        # ScanResult baslat
+        # ScanResult baslat — command_line her zaman redacted versiyonu icerir
         result = ScanResult(
             target_url=config.target_url,
             started_at=datetime.now(),
             scan_config=config.to_dict(),
-            command_line=cmd_string,
+            command_line=redacted_cmd,
         )
 
         try:
@@ -348,8 +393,13 @@ class SQLMapScanner:
                     for v in dir_result.vulnerabilities:
                         if v.title not in existing_titles:
                             result.vulnerabilities.append(v)
-            except Exception:
-                pass
+            except Exception as parse_err:
+                # Output dizini parse hatasi kritik degil — taramanin
+                # konsol ciktisi zaten ana sonuctur. Yine de loglanmali.
+                logger.warning(
+                    "Output dizini parse edilemedi (%s): %s",
+                    temp_output_dir, parse_err,
+                )
 
             # Gecici dizini temizle
             self._cleanup_temp_dir(temp_output_dir)
@@ -381,6 +431,17 @@ class SQLMapScanner:
         """
         if not self.sqlmap_path:
             raise SQLMapNotFoundError("SQLMap sistemde bulunamadi.")
+
+        # CWE-770: Kaynak tukenmesi (DoS) korumasi
+        # Once tamamlanmis surecleri temizle, sonra limiti kontrol et
+        self._reap_finished_scans()
+        if len(self._active_scans) >= self.MAX_ACTIVE_SCANS:
+            raise SQLMapScanError(
+                f"Es zamanli tarama limiti asildi "
+                f"({self.MAX_ACTIVE_SCANS}). Yeni tarama baslatmadan once "
+                f"mevcut taramalarin tamamlanmasini bekleyin veya "
+                f"`stop_scan(task_id)` ile durdurun."
+            )
 
         errors = config.validate()
         if errors:
@@ -504,8 +565,11 @@ class SQLMapScanner:
                     if v.title not in existing_titles:
                         result.vulnerabilities.append(v)
                 self._cleanup_temp_dir(output_dir)
-        except Exception:
-            pass
+        except Exception as parse_err:
+            logger.warning(
+                "Asenkron tarama output dizini parse edilemedi: %s",
+                parse_err,
+            )
 
         result.generate_summary()
 
@@ -578,15 +642,128 @@ class SQLMapScanner:
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         return env
 
+    @classmethod
+    def _redact_command(cls, cmd: list) -> str:
+        """
+        Komut satirindaki hassas degerleri (cookie, header, --data, vb.)
+        maskelenmis bir string olarak doner. Loglara/raporlara yazilirken
+        kullanilir.
+
+        CWE-532: Sensitive Information in Log Files
+        """
+        if not cmd:
+            return ""
+
+        masked = []
+        skip_next = False
+        for arg in cmd:
+            if skip_next:
+                masked.append("***REDACTED***")
+                skip_next = False
+                continue
+
+            # "--cookie=deger" formatini yakala
+            if "=" in arg and arg.startswith("-"):
+                flag, _ = arg.split("=", 1)
+                if flag.lower() in cls._SENSITIVE_FLAGS:
+                    masked.append(f"{flag}=***REDACTED***")
+                    continue
+
+            # Bayrak ve degeri ayri argumanlar olarak verilmisse
+            if arg.lower() in cls._SENSITIVE_FLAGS:
+                masked.append(arg)
+                skip_next = True
+                continue
+
+            masked.append(arg)
+
+        return " ".join(masked)
+
+    def _reap_finished_scans(self):
+        """
+        Tamamlanmis ancak hala _active_scans'da kayitli olan asenkron
+        taramalari temizler. Boylece MAX_ACTIVE_SCANS sayacina dahil
+        olmazlar.
+        """
+        finished_ids = []
+        for task_id, info in self._active_scans.items():
+            try:
+                if info["process"].poll() is not None:
+                    finished_ids.append(task_id)
+            except Exception as e:
+                logger.warning(
+                    "Tarama durumu kontrol edilemedi [%s]: %s", task_id, e
+                )
+
+        for task_id in finished_ids:
+            try:
+                self._active_scans[task_id]["process"].wait(timeout=1)
+            except Exception:
+                pass
+            # Output dizinini temizle
+            output_dir = self._active_scans[task_id].get("output_dir", "")
+            if output_dir:
+                self._cleanup_temp_dir(output_dir)
+            del self._active_scans[task_id]
+
+        if finished_ids:
+            logger.debug(
+                "Tamamlanmis %d tarama temizlendi: %s",
+                len(finished_ids),
+                ", ".join(finished_ids),
+            )
+
     @staticmethod
     def _cleanup_temp_dir(path: str):
-        """Gecici dizini guvenli sekilde temizler."""
+        """
+        Gecici dizini guvenli sekilde temizler.
+
+        Guvenlik kontrolleri (CWE-59: Link Following):
+            - Yol bos ya da None olmamali
+            - 'sqlmap_' on ekini icermeli (kazara silmeyi onler)
+            - tempfile.gettempdir() altinda olmali
+            - Sembolik bag (symlink) olmamali
+        """
+        if not path:
+            return
+
         try:
-            if path and os.path.isdir(path) and "sqlmap_" in path:
+            # Path normalizasyonu
+            real_path = os.path.realpath(path)
+
+            # Sembolik bag testi
+            if os.path.islink(path):
+                logger.warning(
+                    "Temizleme reddedildi (symlink): %s", path
+                )
+                return
+
+            # Yol guvenligi: tempfile dizini altinda olmali
+            tmp_root = os.path.realpath(tempfile.gettempdir())
+            if not real_path.startswith(tmp_root + os.sep):
+                logger.warning(
+                    "Temizleme reddedildi (tempdir disi): %s", real_path
+                )
+                return
+
+            # Beklenen prefix kontrolu
+            if "sqlmap_" not in os.path.basename(real_path):
+                logger.warning(
+                    "Temizleme reddedildi (beklenen prefix yok): %s", real_path
+                )
+                return
+
+            if os.path.isdir(real_path):
                 import shutil as _shutil
-                _shutil.rmtree(path, ignore_errors=True)
-        except Exception:
+                # symlinks=False (varsayilan) ile bizi link disina cikartmaz
+                _shutil.rmtree(real_path, ignore_errors=False)
+        except FileNotFoundError:
+            # Dizin zaten yok — sorun degil
             pass
+        except Exception as cleanup_err:
+            logger.warning(
+                "Gecici dizin temizleme hatasi: %s — %s", path, cleanup_err
+            )
 
     # ─────────────────────────────────────────────────────────────────────
     # Context Manager Destegi
