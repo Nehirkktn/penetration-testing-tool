@@ -1,3 +1,20 @@
+# Siber Savaşçılar — Bağımlılıklar
+# Kurulum: pip install -r requirements.txt
+
+# ── Zorunlu ──────────────────────────────────────────────────────────
+requests>=2.31.0       # HTTP istekleri (tüm tarayıcılar)
+flask>=3.0.0           # Web backend API
+pyyaml>=6.0            # YAML senaryo motoru
+urllib3>=2.0.0         # SSL uyarı kontrolü
+reportlab>=4.0.0       # PDF rapor üretimi (HTML görünümüyle birebir aynı)
+
+# ── Opsiyonel ────────────────────────────────────────────────────────
+# python-nmap         # Port scanner için. Yoksa socket fallback kullanılır.
+#                     # Sistemde 'nmap' binary'si de kurulu olmalı.
+# pytest>=8.0         # Test koşumu için (sadece geliştirme)
+
+python-nmap>=0.7.1
+pytest>=8.0.0
 fastapi
 uvicorn
 python-nmap
