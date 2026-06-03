@@ -11,7 +11,7 @@
 services:
   sizma-testi:
     build: .
-    container_name: sizma-testi-aracı
+    container_name: sizma-testi-araci
     ports:
       - "5000:5000"
     volumes:
