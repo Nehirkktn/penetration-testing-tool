@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────
+#  Sızma Testi Otomasyon Aracı — Docker Compose
+#
+#  Kullanım:
+#    docker compose up         (başlat, terminal açık kalır)
+#    docker compose up -d      (arka planda başlat)
+#    docker compose down       (durdur)
+#    docker compose logs -f    (logları izle)
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  sizma-testi:
+    build: .
+    container_name: sizma-testi-aracı
+    ports:
+      - "5000:5000"
+    volumes:
+      # Veritabanı ve raporlar host makinede kalıcı olsun
+      - ./data:/app/data
+      - ./reports:/app/reports
+      # YAML senaryolarını host'tan değiştirebilmek için
+      - ./scenarios_data:/app/scenarios_data
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

@@ -1,0 +1,29 @@
+id: backup-file-exposure
+info:
+  name: "Yedek Dosya İfşası"
+  author: "siber-savascilar-ekibi"
+  severity: "Critical"
+  description: >
+    Web sunucusu kök dizinine bırakılmış yedek dosyaları (backup.zip,
+    database.sql, *.bak vb.) test eder. Bu dosyalar tüm kaynak kodu,
+    veritabanı şifrelerini ve hassas yapılandırmayı içerebilir.
+  cwe: "CWE-530"
+  remediation: >
+    Yedek dosyaları asla web kök dizininde tutmayın. Production'a
+    deploy ederken `.bak`, `.old`, `.swp` ve benzeri dosyaları temizleyin.
+    Web sunucusu seviyesinde bu uzantılara erişimi engelleyin.
+
+requests:
+  - method: GET
+    path:
+      - "{{target_url}}/backup.zip"
+      - "{{target_url}}/backup.tar.gz"
+      - "{{target_url}}/dump.sql"
+      - "{{target_url}}/database.sql.bak"
+      - "{{target_url}}/site-backup.zip"
+      - "{{target_url}}/www.zip"
+      - "{{target_url}}/index.php.bak"
+      - "{{target_url}}/config.php.old"
+    matchers:
+      - type: status
+        status: [200]
