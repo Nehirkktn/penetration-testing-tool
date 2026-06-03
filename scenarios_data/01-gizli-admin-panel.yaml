@@ -1,0 +1,35 @@
+id: hidden-admin-panel
+info:
+  name: "Gizli Yönetici Paneli Tespiti"
+  author: "siber-savascilar-ekibi"
+  severity: "High"
+  description: >
+    Yaygın gizli yönetim paneli yollarını (özellikle Türkçe adlandırmalar
+    dahil) test eder. Korumasız bulunan paneller saldırganlar için hızlı
+    bir giriş noktasıdır.
+  cwe: "CWE-284"
+  remediation: >
+    Yönetici panellerini her zaman kimlik doğrulaması arkasına alın.
+    Mümkünse panel URL'lerini tahmin edilemez (rastgele) bir yola taşıyın.
+    IP whitelisting veya VPN-only erişim uygulayın.
+
+requests:
+  - method: GET
+    path:
+      - "{{target_url}}/yonetim"
+      - "{{target_url}}/yonetim-paneli"
+      - "{{target_url}}/admin-panel"
+      - "{{target_url}}/control-panel"
+      - "{{target_url}}/manager/html"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        condition: or
+        words:
+          - "Admin Panel"
+          - "Yönetim Paneli"
+          - "Dashboard"
+          - "Welcome admin"
+          - "Tomcat Manager"
