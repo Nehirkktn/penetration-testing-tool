@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-nmap
+pymetasploit3
+requests
+pyyaml
+requests

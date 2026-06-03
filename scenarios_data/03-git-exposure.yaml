@@ -1,0 +1,30 @@
+id: git-exposure
+info:
+  name: ".git Dizini İfşası"
+  author: "siber-savascilar-ekibi"
+  severity: "High"
+  description: >
+    Web kök dizinine yanlışlıkla deploy edilmiş .git dizinini tespit eder.
+    Bu açık varsa saldırgan tüm git history'sini, eski şifreleri ve
+    kaynak kodunu (git-dumper benzeri araçlarla) indirebilir.
+  cwe: "CWE-538"
+  remediation: >
+    .git dizinini deployment paketinden hariç tutun. Web sunucusunda
+    .git/* yollarına erişimi engelleyin (Apache: <DirectoryMatch>, Nginx:
+    location ~ /\.git { deny all; }).
+
+requests:
+  - method: GET
+    path:
+      - "{{target_url}}/.git/HEAD"
+      - "{{target_url}}/.git/config"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        condition: or
+        words:
+          - "ref: refs/heads/"
+          - "[core]"
+          - "repositoryformatversion"
