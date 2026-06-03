@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+
+# Virtual env
+venv/
+env/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Önceki tarama çıktıları
+data/*.db
+reports/*.html
+reports/*.json
+reports/*.pdf
+
+# Dokümantasyon — Docker imajında olması zorunlu değil, ama küçük dosya
+# docs/
+
+# Test'ler — production imajda gerek yok (yorum kaldırırsan ekleyemez)
+# tests/

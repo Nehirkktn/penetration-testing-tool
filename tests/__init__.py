@@ -1,1 +1,1 @@
-"""Test paketi."""
+"""Pytest test paketi. Çalıştırmak için: pytest tests/"""
