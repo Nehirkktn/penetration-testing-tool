@@ -10,7 +10,7 @@ Sistem 3 ana katmandan oluşur:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                      SUNUM KATMANI                              │
+│                      SUNUM KATMANI                             │
 │  ┌──────────────────────┐    ┌──────────────────────────────┐  │
 │  │   Komut Satırı (CLI) │    │   Web Arayüzü (Flask)        │  │
 │  │   siber_savascilar/  │    │   siber_savascilar/api/      │  │
@@ -20,28 +20,28 @@ Sistem 3 ana katmandan oluşur:
               │                               │
               ▼                               ▼
 ┌────────────────────────────────────────────────────────────────┐
-│                       İŞ KATMANI                                │
+│                       İŞ KATMANI                               │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │              Orkestratör (orchestrator.py)               │  │
 │  │  Modülleri sırayla çalıştırır, sonuçları toplar          │  │
 │  └────┬─────────────────────────────────────────────────────┘  │
-│       │                                                         │
+│       │                                                        │
 │  ┌────▼────────────────────────────────────────────────────┐   │
 │  │              Tarayıcı Modülleri (scanners/)             │   │
 │  │  PortScanner  │ SQLiScanner   │ XSSScanner              │   │
 │  │  MisconfigScanner │ SensitiveDataScanner                │   │
 │  │  AccessControlScanner │ ScenarioScanner │ SQLMapScanner │   │
 │  └────┬────────────────────────────────────────────────────┘   │
-│       │                                                         │
+│       │                                                        │
 │  ┌────▼────────────────────────────────────────────────────┐   │
 │  │              Raporlama (reporting/)                     │   │
 │  │  ReportGenerator → HTML / JSON / PDF                    │   │
 │  └─────────────────────────────────────────────────────────┘   │
-└────────────────────────┬────────────────────────────────────────┘
+└────────────────────────┬───────────────────────────────────────┘
                          │
                          ▼
 ┌────────────────────────────────────────────────────────────────┐
-│                       VERİ KATMANI                              │
+│                       VERİ KATMANI                             │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │              SQLite Veritabanı (core/database.py)        │  │
 │  │  USERS │ SCAN_CONFIGS │ SCANS │ VULNERABILITIES │ REPORTS│  │
