@@ -486,7 +486,7 @@ class ReportGenerator:
                 [Spacer(1, 12)],
                 [meta_table],
             ]
-            header = Table(header_inner, colWidths=[content_width - 32])
+            header = Table(header_inner, colWidths=[content_width])
             header.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), C_DARK),
                 ("LEFTPADDING", (0, 0), (-1, -1), 16),
@@ -724,7 +724,7 @@ class ReportGenerator:
         )
         header_row = Table(
             [[title_para, badge]],
-            colWidths=[content_width - 26 * mm - 24, 26 * mm + 8],
+            colWidths=[content_width - 26 * mm - 36, 26 * mm + 8],
         )
         header_row.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -763,7 +763,7 @@ class ReportGenerator:
         if v.remediation:
             detail_rows.append(row("Çözüm", v.remediation))
 
-        details = Table(detail_rows, colWidths=[28 * mm, content_width - 28 * mm - 20])
+        details = Table(detail_rows, colWidths=[28 * mm, content_width - 28 * mm - 28])
         details.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -775,7 +775,7 @@ class ReportGenerator:
         # Kart: panel arka planı + sol kenarda renkli şerit (severity rengi)
         card_inner = Table(
             [[header_row], [Spacer(1, 6)], [details]],
-            colWidths=[content_width - 14],
+            colWidths=[content_width - 28],
         )
         card_inner.setStyle(TableStyle([
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
