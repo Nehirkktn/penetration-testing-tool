@@ -15,7 +15,7 @@ Rapor şablonu içeriği:
 
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from ..core.models import ScanResult, Severity
@@ -301,10 +301,10 @@ class ReportGenerator:
             info=brk["Informational"],
             summary=self._escape(scan_result.summary or scan_result.generate_summary()),
             vulnerabilities_html=vulns_html,
-            generated_at=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            generated_at=datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None).strftime("%d.%m.%Y %H:%M:%S"),
         )
 
-        filename = f"rapor_{scan_result.scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+        filename = f"rapor_{scan_result.scan_id}_{datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None).strftime('%Y%m%d_%H%M%S')}.html"
         filepath = os.path.join(self.output_dir, filename)
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html)
@@ -314,7 +314,7 @@ class ReportGenerator:
     # JSON
     # ──────────────────────────────────────────────────────────────────
     def generate_json(self, scan_result: ScanResult) -> str:
-        filename = f"rapor_{scan_result.scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"rapor_{scan_result.scan_id}_{datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None).strftime('%Y%m%d_%H%M%S')}.json"
         filepath = os.path.join(self.output_dir, filename)
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(scan_result.to_dict(), f, indent=2, ensure_ascii=False, default=str)
@@ -604,7 +604,7 @@ class ReportGenerator:
 
         # ── FOOTER ──
         def build_footer():
-            generated = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            generated = datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None).strftime("%d.%m.%Y %H:%M:%S")
             text = (
                 "Sızma Testi Otomasyon Aracı v1.0 — Siber Savaşçılar Ekibi<br/>"
                 "Fırat Üniversitesi Yazılım Mühendisliği Temelleri Dersi<br/>"
@@ -622,7 +622,7 @@ class ReportGenerator:
             return t
 
         # ── PDF dökümanını birleştir ──
-        filename = f"rapor_{scan_result.scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filename = f"rapor_{scan_result.scan_id}_{datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None).strftime('%Y%m%d_%H%M%S')}.pdf"
         filepath = os.path.join(self.output_dir, filename)
 
         doc = SimpleDocTemplate(
