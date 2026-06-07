@@ -17,7 +17,7 @@ Akış:
 import time
 import urllib3
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Callable
 
 from .core.models import ScanResult, ScanStatus, Vulnerability
@@ -70,7 +70,7 @@ class Orchestrator:
 
         result = ScanResult(
             target_url=target,
-            started_at=datetime.now(),
+            started_at=datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None),
             status=ScanStatus.RUNNING,
             modules_run=modules,
             scan_config={"modules": modules},
@@ -79,7 +79,7 @@ class Orchestrator:
         if not is_valid:
             result.status = ScanStatus.ERROR
             result.error_message = msg
-            result.finished_at = datetime.now()
+            result.finished_at = datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None)
             return result
 
         # Ön sağlık kontrolü — hedef ulaşılabilir mi?
@@ -139,7 +139,7 @@ class Orchestrator:
 
         # Sonlandır
         result.status = ScanStatus.COMPLETED
-        result.finished_at = datetime.now()
+        result.finished_at = datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None)
         result.generate_summary()
 
         # DB'ye yaz

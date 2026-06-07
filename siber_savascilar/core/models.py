@@ -103,7 +103,8 @@ class Vulnerability:
 
     def __post_init__(self):
         if self.discovered_at is None:
-            self.discovered_at = datetime.now()
+            from datetime import timezone, timedelta
+            self.discovered_at = datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None)
 
     def to_db_record(self) -> Dict[str, Any]:
         """VULNERABILITIES tablosuna uygun dict döndürür."""

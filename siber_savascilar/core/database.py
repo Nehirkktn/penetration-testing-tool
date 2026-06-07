@@ -17,7 +17,7 @@ Düzeltilen Buglar (Nursena'nın BUG_RAPORU.md'sinden):
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
 
@@ -153,7 +153,7 @@ class Database:
             cursor = conn.execute(
                 """INSERT INTO scans (target_url, status, started_at, modules_run)
                    VALUES (?, ?, ?, ?)""",
-                (target_url, ScanStatus.RUNNING, datetime.now().isoformat(),
+                (target_url, ScanStatus.RUNNING, datetime.now(timezone(timedelta(hours=3))).replace(tzinfo=None).isoformat(),
                  ",".join(modules or []))
             )
             return cursor.lastrowid
