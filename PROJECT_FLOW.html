@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Siber Savaşçılar — Proje Akış Günlüğü</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg:       #0D1117;
+    --bg2:      #161B22;
+    --bg3:      #21262D;
+    --border:   #30363D;
+    --blue:     #58A6FF;
+    --green:    #3FB950;
+    --red:      #FF6B6B;
+    --orange:   #F0883E;
+    --purple:   #BC8CFF;
+    --yellow:   #D29922;
+    --white:    #E6EDF3;
+    --muted:    #8B949E;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--sans);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── CANVAS BACKGROUND ── */
+  #matrix-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── SCAN LINE EFFECT ── */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(88, 166, 255, 0.012) 2px,
+      rgba(88, 166, 255, 0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── LAYOUT ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 60px;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--green);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+    50%       { opacity: 0.5; box-shadow: 0 0 2px var(--green); }
+  }
+
+  .hero-title {
+    font-size: clamp(32px, 6vw, 56px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+
+  .hero-title .accent { color: var(--blue); }
+
+  .hero-subtitle {
+    font-size: 17px;
+    color: var(--muted);
+    margin-bottom: 36px;
+    max-width: 560px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 36px;
+  }
+
+  .terminal-bar {
+    background: var(--bg3);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #FF5F57; }
+  .dot-y { background: #FEBC2E; }
+  .dot-g { background: #28C840; }
+
+  .terminal-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+
+  .terminal-body {
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+  }
+
+  .t-prompt { color: var(--green); }
+  .t-cmd    { color: var(--white); }
+  .t-out    { color: var(--muted); }
+  .t-val    { color: var(--blue); }
+  .t-str    { color: var(--orange); }
+  .t-cursor {
+    display: inline-block;
+    width: 8px; height: 14px;
+    background: var(--blue);
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── TEAM TABLE ── */
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 60px;
+  }
+
+  .team-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    transition: border-color .2s, transform .2s;
+  }
+
+  .team-card:hover {
+    border-color: var(--blue);
+    transform: translateY(-2px);
+  }
+
+  .team-card-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+
+  .team-card-role {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--blue);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .team-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  .tag-blue   { color: var(--blue);   border-color: rgba(88,166,255,.3);   background: rgba(88,166,255,.08);   }
+  .tag-green  { color: var(--green);  border-color: rgba(63,185,80,.3);    background: rgba(63,185,80,.08);    }
+  .tag-orange { color: var(--orange); border-color: rgba(240,136,62,.3);   background: rgba(240,136,62,.08);   }
+  .tag-purple { color: var(--purple); border-color: rgba(188,140,255,.3);  background: rgba(188,140,255,.08);  }
+  .tag-yellow { color: var(--yellow); border-color: rgba(210,153,34,.3);   background: rgba(210,153,34,.08);   }
+
+  /* ── SECTION HEADERS ── */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .section-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+
+  .section-sub {
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 40px;
+  }
+
+  /* ── WEEK ACCORDION ── */
+  .weeks { display: flex; flex-direction: column; gap: 12px; }
+
+  .week {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .5s ease, transform .5s ease, border-color .2s;
+  }
+
+  .week.visible { opacity: 1; transform: translateY(0); }
+
+  .week:hover { border-color: rgba(88,166,255,.4); }
+
+  .week-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 24px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+  }
+
+  .week-header::-webkit-details-marker { display: none; }
+
+  .week-num {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--border);
+    min-width: 36px;
+    transition: color .2s;
+  }
+
+  details[open] .week-num { color: var(--blue); }
+
+  .week-meta { flex: 1; }
+
+  .week-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  .week-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .week-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .week-chevron {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform .3s;
+  }
+
+  details[open] .week-chevron { transform: rotate(90deg); }
+
+  .week-body {
+    padding: 0 24px 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── PERSON ENTRY ── */
+  .person-entry {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .person-entry:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .person-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .person-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .person-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--white);
+  }
+
+  .person-role-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: auto;
+  }
+
+  .person-text {
+    font-size: 14px;
+    color: #B0B8C6;
+    line-height: 1.75;
+    padding-left: 44px;
+  }
+
+  /* ── STATS BAR ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 60px 0;
+  }
+
+  .stat-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    opacity: 0;
+    transform: scale(.95);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+
+  .stat-box.visible { opacity: 1; transform: scale(1); }
+
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── OUTCOME ── */
+  .outcome {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+    margin-top: 60px;
+  }
+
+  .outcome-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .outcome-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+
+  .outcome-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg3);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .outcome-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .outcome-text {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .outcome-text strong { color: var(--white); }
+
+  /* ── MEETING CALLOUT ── */
+  .meeting-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: rgba(88,166,255,.06);
+    border: 1px solid rgba(88,166,255,.25);
+    border-left: 3px solid var(--blue);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 24px 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .meeting-callout strong { color: var(--blue); }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: gap;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    gap: 16px;
+  }
+
+  footer span { color: var(--blue); }
+
+  /* ── PROGRESS TRACKER ── */
+  .timeline-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    .person-text { padding-left: 0; }
+    footer { flex-direction: column; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+
+<div class="wrapper">
+
+  <!-- ── HERO ── -->
+  <header class="hero">
+    <p class="hero-eyebrow">YMT1104 · 2025–2026 Bahar · Fırat Üniversitesi</p>
+    <h1 class="hero-title">
+      Siber <span class="accent">Savaşçılar</span><br>
+      Proje Akış Günlüğü
+    </h1>
+    <p class="hero-subtitle">
+      Sızma Testi Otomasyon Aracı — 6 haftalık geliştirme sürecinin hafta hafta kaydı.
+      Proje Lideri: Nehir Kökten
+    </p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="terminal-title">siber-savascilar ~ bash</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="t-prompt">$</span> <span class="t-cmd">cat project.info</span></div>
+        <div><span class="t-out">project   </span> <span class="t-val">Sizma Testi Otomasyon Araci</span></div>
+        <div><span class="t-out">team      </span> <span class="t-str">Siber Savascilar (5 kisi)</span></div>
+        <div><span class="t-out">stack     </span> <span class="t-val">Python 3.11 · Flask · SQLite · Docker</span></div>
+        <div><span class="t-out">standard  </span> <span class="t-str">OWASP Top 10</span></div>
+        <div><span class="t-out">duration  </span> <span class="t-val">6 hafta · Mart – Haziran 2026</span></div>
+        <div><span class="t-out">modules   </span> <span class="t-val">8 scanner · 3 report formats · REST API</span></div>
+        <div><span class="t-prompt">$</span> <span class="t-cmd">_</span><span class="t-cursor"></span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── TEAM ── -->
+  <section>
+    <p class="section-label">Ekip</p>
+    <div class="team-grid">
+
+      <div class="team-card">
+        <div class="team-card-name">Nehir Kökten</div>
+        <div class="team-card-role">// Proje Lideri</div>
+        <div class="team-card-tags">
+          <span class="tag tag-blue">Mimari</span>
+          <span class="tag tag-blue">Raporlama</span>
+          <span class="tag tag-blue">API</span>
+        </div>
+      </div>
+
+      <div class="team-card">
+        <div class="team-card-name">Nursena Karaduman</div>
+        <div class="team-card-role">// Backend · Veritabanı</div>
+        <div class="team-card-tags">
+          <span class="tag tag-green">SQLi/XSS/Port</span>
+          <span class="tag tag-green">DB Schema</span>
+        </div>
+      </div>
+
+      <div class="team-card">
+        <div class="team-card-name">Muhammet Sefa Kozan</div>
+        <div class="team-card-role">// Backend · Test</div>
+        <div class="team-card-tags">
+          <span class="tag tag-orange">SQLMap</span>
+          <span class="tag tag-orange">Orchestrator</span>
+          <span class="tag tag-orange">CLI</span>
+        </div>
+      </div>
+
+      <div class="team-card">
+        <div class="team-card-name">Şevval Duran</div>
+        <div class="team-card-role">// Frontend · UI/UX</div>
+        <div class="team-card-tags">
+          <span class="tag tag-purple">Web Panel</span>
+          <span class="tag tag-purple">Docker</span>
+        </div>
+      </div>
+
+      <div class="team-card">
+        <div class="team-card-name">Muhammed Baki Başbay</div>
+        <div class="team-card-role">// Backend · Dokümantasyon</div>
+        <div class="team-card-tags">
+          <span class="tag tag-yellow">YAML Motor</span>
+          <span class="tag tag-yellow">Docs</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── STATS ── -->
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num" style="color:var(--blue)">8</div><div class="stat-label">Tarayıcı Modülü</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--green)">13</div><div class="stat-label">Test Dosyası</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--orange)">3</div><div class="stat-label">Rapor Formatı</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--red)">3</div><div class="stat-label">Bug Kapatıldı</div></div>
+  </div>
+
+  <!-- ── WEEKS ── -->
+  <section>
+    <p class="section-label">Haftalık Akış</p>
+    <h2 class="section-title">6 Haftada Neler Yaptık?</h2>
+    <p class="section-sub">Her haftanın üzerine tıklayarak detayları görebilirsiniz.</p>
+
+    <div class="weeks">
+
+      <!-- HAFTA 1 -->
+      <details class="week">
+        <summary class="week-header">
+          <span class="week-num">01</span>
+          <div class="week-meta">
+            <div class="week-title">Proje Tanıma ve Başlangıç</div>
+            <div class="week-desc">Kapsam, gereksinimler, GitHub kurulumu</div>
+          </div>
+          <span class="week-badge tag tag-blue">Mart 2026</span>
+          <span class="week-chevron">▶</span>
+        </summary>
+        <div class="week-body">
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(88,166,255,.15);color:var(--blue)">NK</div>
+              <div>
+                <div class="person-name">Nehir Kökten</div>
+              </div>
+              <span class="person-role-tag tag tag-blue">Proje Lideri</span>
+            </div>
+            <p class="person-text">
+              İlk hafta, dersin proje ödevi kapsamında hocamızın yönlendirmesiyle başladık. Bize verilen görev doğrultusunda proje kapsamını ve gereksinim listesini çıkardım. Hangi güvenlik açıklarını hedefleyeceğimizi, kullanıcıların bu araçtan ne bekleyeceğini ve sistemin genel sınırlarını belgeledim. Aynı zamanda GitHub reposunu oluşturarak ekibi davet ettim ve temel iş akışı kurallarını belirledim.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(63,185,80,.15);color:var(--green)">NKa</div>
+              <div><div class="person-name">Nursena Karaduman</div></div>
+              <span class="person-role-tag tag tag-green">Backend · DB</span>
+            </div>
+            <p class="person-text">
+              OWASP Top 10 listesini baştan sona inceledi. Hangi güvenlik açığı kategorilerinin öncelikli olduğunu araştırdı; özellikle A01 (Broken Access Control), A02 (Cryptographic Failures), A03 (Injection) kategorilerini mercek altına aldı. Bu araştırmanın çıktısını bir analiz dokümanı olarak hazırlayıp ekiple paylaştı. Bu doküman, ilerleyen haftalarda tarayıcı modüllerinin tasarımına doğrudan rehberlik etti.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(240,136,62,.15);color:var(--orange)">MSK</div>
+              <div><div class="person-name">Muhammet Sefa Kozan</div></div>
+              <span class="person-role-tag tag tag-orange">Backend · Test</span>
+            </div>
+            <p class="person-text">
+              Projede kullanılacak araçları ve entegrasyon yöntemlerini araştırdı. Nmap, SQLMap gibi güvenlik araçlarının Python üzerinden nasıl çağrılabileceğini, hangi kütüphanelerin kullanılabileceğini inceledi. Bu araştırmanın sonunda bir teknoloji seçimi raporu hazırladı. Ekip olarak Python 3.11 ve Flask üzerinde mutabık kaldık.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(188,140,255,.15);color:var(--purple)">ŞD</div>
+              <div><div class="person-name">Şevval Duran</div></div>
+              <span class="person-role-tag tag tag-purple">Frontend · UI/UX</span>
+            </div>
+            <p class="person-text">
+              Geliştirme ortamını kurdu ve yapılandırdı. Python, Flask, pip bağımlılıkları ve Git kurulumunu yaptı. Ortamın tüm ekip üyelerinde tutarlı çalışması için gerekli yapılandırma adımlarını belgeledi. Bu belge, sonradan Docker kurulumunun temelini oluşturdu.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(210,153,34,.15);color:var(--yellow)">MBB</div>
+              <div><div class="person-name">Muhammed Baki Başbay</div></div>
+              <span class="person-role-tag tag tag-yellow">Backend · Docs</span>
+            </div>
+            <p class="person-text">
+              Teknoloji araştırması yaparak Python'ın bu proje için neden uygun olduğunu, Flask'in REST API geliştirmeye katkısını ve pyyaml, reportlab gibi kütüphanelerin rollerini açıklayan bir rapor hazırladı. Bu rapor, ekibin teknoloji seçimlerini gerekçeli bir şekilde savunmasını sağladı.
+            </p>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- HAFTA 2 -->
+      <details class="week">
+        <summary class="week-header">
+          <span class="week-num">02</span>
+          <div class="week-meta">
+            <div class="week-title">Analiz ve Planlama</div>
+            <div class="week-desc">Mimari tasarım, wireframe, DB şeması — ilk yüz yüze toplantı</div>
+          </div>
+          <span class="week-badge tag tag-green">11 Mayıs</span>
+          <span class="week-chevron">▶</span>
+        </summary>
+        <div class="week-body">
+
+          <div class="meeting-callout">
+            📍 <div><strong>İlk Yüz Yüze Toplantı — 11 Mayıs 2026</strong><br>
+            Mimari kararlar ve görev dağılımı bu toplantıda netleştirildi.</div>
+          </div>
+
+          <div class="person-entry" style="margin-top:16px">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(88,166,255,.15);color:var(--blue)">NK</div>
+              <div><div class="person-name">Nehir Kökten</div></div>
+              <span class="person-role-tag tag tag-blue">Proje Lideri</span>
+            </div>
+            <p class="person-text">
+              Raporlama modülünün nasıl çalışması gerektiğini planladım. Raporların hangi formatlarda üretileceğini (HTML, JSON, PDF), hangi bilgileri içereceğini ve kullanıcıya nasıl sunulacağını belirledim. Bu tasarım kararları, ilerleyen haftalarda geliştirilen modülün tam olarak neye benzeyeceğini şekillendirdi. Aynı zamanda proje bağlantılarını ve repo yapısını düzenledim.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(63,185,80,.15);color:var(--green)">NKa</div>
+              <div><div class="person-name">Nursena Karaduman</div></div>
+              <span class="person-role-tag tag tag-green">Backend · DB</span>
+            </div>
+            <p class="person-text">
+              Tarama motorunun modüler mimarisini tasarladı. "Her tarayıcı bağımsız bir modül olsun, hepsi aynı arayüzden türesin" kararı bu haftada alındı. <code>BaseScanner</code> soyut sınıfının arayüzü çizildi. Ayrıca modüller arası veri akışını tanımladı; <code>ScanResult</code> ve <code>Vulnerability</code> veri modellerinin genel yapısı bu çalışmadan çıktı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(240,136,62,.15);color:var(--orange)">MSK</div>
+              <div><div class="person-name">Muhammet Sefa Kozan</div></div>
+              <span class="person-role-tag tag tag-orange">Backend · Test</span>
+            </div>
+            <p class="person-text">
+              Veritabanı şemasını ve kimlik doğrulama mekanizmasını tasarladı. 5 tablolu SQLite şeması bu hafta kağıda döküldü: kullanıcılar, tarama yapılandırmaları, taramalar, zafiyetler ve raporlar. Ayrıca URL doğrulama katmanının güvenlik gereksinimlerini (SSRF, CRLF koruması) belirledi.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(188,140,255,.15);color:var(--purple)">ŞD</div>
+              <div><div class="person-name">Şevval Duran</div></div>
+              <span class="person-role-tag tag tag-purple">Frontend · UI/UX</span>
+            </div>
+            <p class="person-text">
+              Web tabanlı yönetim panelinin wireframe tasarımını yaptı. Panelin hangi ekranlardan oluşacağını (Dashboard, Yeni Tarama, Tarama Geçmişi, Raporlar, Senaryolar), navigasyonun nasıl işleyeceğini ve görsel hiyerarşiyi belirledi. Bu wireframe'ler, geliştirme sürecinde sürekli başvurduğumuz referans noktaları oldu.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(210,153,34,.15);color:var(--yellow)">MBB</div>
+              <div><div class="person-name">Muhammed Baki Başbay</div></div>
+              <span class="person-role-tag tag tag-yellow">Backend · Docs</span>
+            </div>
+            <p class="person-text">
+              Özelleştirilebilir test senaryolarının nasıl çalışması gerektiğini araştırdı. Kullanıcıların kendi testlerini yazabileceği bir altyapı için YAML formatının uygun olacağına karar verdi. Nuclei projesinin şablon yapısını inceleyerek kendi senaryo formatımızın temellerini attı.
+            </p>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- HAFTA 3 -->
+      <details class="week">
+        <summary class="week-header">
+          <span class="week-num">03</span>
+          <div class="week-meta">
+            <div class="week-title">Tasarım</div>
+            <div class="week-desc">Veri modelleri, şablon tasarımı, YAML formatı</div>
+          </div>
+          <span class="week-badge tag tag-orange">Nisan 2026</span>
+          <span class="week-chevron">▶</span>
+        </summary>
+        <div class="week-body">
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(88,166,255,.15);color:var(--blue)">NK</div>
+              <div><div class="person-name">Nehir Kökten</div></div>
+              <span class="person-role-tag tag tag-blue">Proje Lideri</span>
+            </div>
+            <p class="person-text">
+              Raporlama modülünün HTML şablonunu tasarladım. Raporun görsel düzeni bu hafta şekillendi: koyu arka plan, renk kodlu zafiyet kartları (kırmızı=kritik, turuncu=yüksek), yönetici özeti bölümü ve CWE referans numaraları. Bunun yanında <code>ReportGenerator</code> sınıfının iskeletini ve metot imzalarını yazdım.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(63,185,80,.15);color:var(--green)">NKa</div>
+              <div><div class="person-name">Nursena Karaduman</div></div>
+              <span class="person-role-tag tag tag-green">Backend · DB</span>
+            </div>
+            <p class="person-text">
+              <code>models.py</code> dosyasını yazdı. <code>Severity</code>, <code>VulnType</code>, <code>ScanStatus</code>, <code>Vulnerability</code>, <code>ScanResult</code> sınıfları bu dosyada hayata geçti. Bu modeller projenin ortak dili oldu; tüm tarayıcılar aynı <code>Vulnerability</code> nesnesini üretmeye başladı. Ayrıca <code>BaseScanner</code> soyut sınıfını ve <code>SCANNER_REGISTRY</code> sözlüğünü oluşturdu.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(240,136,62,.15);color:var(--orange)">MSK</div>
+              <div><div class="person-name">Muhammet Sefa Kozan</div></div>
+              <span class="person-role-tag tag tag-orange">Backend · Test</span>
+            </div>
+            <p class="person-text">
+              SQLMap entegrasyon modülünün tasarımını yaptı. SQLMap'in sistemde kurulu olup olmadığını kontrol eden, varsa subprocess ile çalıştıran, yoksa kendi SQLi tarayıcımıza düşen fallback mekanizmasını tasarladı. Ayrıca <code>URLValidator</code> ve <code>TargetValidator</code> sınıflarının güvenlik gereksinimlerini kodlamaya başladı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(188,140,255,.15);color:var(--purple)">ŞD</div>
+              <div><div class="person-name">Şevval Duran</div></div>
+              <span class="person-role-tag tag tag-purple">Frontend · UI/UX</span>
+            </div>
+            <p class="person-text">
+              Web arayüzünün HTML iskeletini ve CSS değişkenlerini yazmaya başladı. Koyu tema için renk paletini ve sayfa düzenini oluşturdu. Sidebar navigasyonu ve ana içerik alanının yapısı bu haftada kodlandı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(210,153,34,.15);color:var(--yellow)">MBB</div>
+              <div><div class="person-name">Muhammed Baki Başbay</div></div>
+              <span class="person-role-tag tag tag-yellow">Backend · Docs</span>
+            </div>
+            <p class="person-text">
+              YAML senaryo formatını kesinleştirdi. <code>id</code>, <code>info</code> (name, severity, cwe, remediation) ve <code>requests</code> (method, path, matchers) alanlarından oluşan format bu hafta son halini aldı. <code>status</code>, <code>word</code> ve <code>regex</code> matcher türleri ile AND/OR koşul mantığı tasarlandı.
+            </p>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- HAFTA 4 -->
+      <details class="week">
+        <summary class="week-header">
+          <span class="week-num">04</span>
+          <div class="week-meta">
+            <div class="week-title">Geliştirme — Temel</div>
+            <div class="week-desc">Tüm modüller kodlandı — en yoğun hafta</div>
+          </div>
+          <span class="week-badge tag tag-red" style="color:var(--red);border-color:rgba(255,107,107,.3);background:rgba(255,107,107,.08)">Yoğun</span>
+          <span class="week-chevron">▶</span>
+        </summary>
+        <div class="week-body">
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(88,166,255,.15);color:var(--blue)">NK</div>
+              <div><div class="person-name">Nehir Kökten</div></div>
+              <span class="person-role-tag tag tag-blue">Proje Lideri</span>
+            </div>
+            <p class="person-text">
+              <code>ReportGenerator</code> sınıfını tamamladım. <code>generate_html()</code>, <code>generate_json()</code> ve <code>generate_pdf()</code> metodlarını yazdım. PDF üretimi için reportlab kütüphanesini entegre ettim; Türkçe karakter desteği için DejaVu Sans fontlarını projeye ekledim. Flask API sunucusunun temel endpoint'lerini (<code>/api/scans</code>, <code>/api/scans/&lt;id&gt;/report</code>) yazdım.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(63,185,80,.15);color:var(--green)">NKa</div>
+              <div><div class="person-name">Nursena Karaduman</div></div>
+              <span class="person-role-tag tag tag-green">Backend · DB</span>
+            </div>
+            <p class="person-text">
+              <code>database.py</code> dosyasını yazdı. 5 tablolu SQLite şeması, <code>PRAGMA foreign_keys = ON</code> ile referans bütünlüğü, <code>@contextmanager</code> ile otomatik commit/rollback bu dosyada hayata geçti. Ardından en kritik tarayıcıları yazdı: <code>sqli_scanner.py</code> (hata tabanlı ve time-based blind SQLi), <code>xss_scanner.py</code> (HTML, attribute, SVG, JS bağlamları), <code>port_scanner.py</code> (Nmap + socket fallback, 20+ port). O haftada en fazla kod satırı yazan ekip üyesiydi.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(240,136,62,.15);color:var(--orange)">MSK</div>
+              <div><div class="person-name">Muhammet Sefa Kozan</div></div>
+              <span class="person-role-tag tag tag-orange">Backend · Test</span>
+            </div>
+            <p class="person-text">
+              <code>sqlmap_scanner.py</code> modülünü ve <code>orchestrator.py</code>'yi yazdı. Orchestrator, tüm sistemi bir arada tutan koordinatör modüldü; URL normalize etme, modülleri sıraya koyma, sonuçları toplama ve veritabanına yazma akışını yönetti. <code>cli.py</code> arayüzünü ve <code>requirements.txt</code> ile <code>setup.py</code> dosyalarını da tamamladı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(188,140,255,.15);color:var(--purple)">ŞD</div>
+              <div><div class="person-name">Şevval Duran</div></div>
+              <span class="person-role-tag tag tag-purple">Frontend · UI/UX</span>
+            </div>
+            <p class="person-text">
+              Web arayüzünü (<code>index.html</code>, <code>style.css</code>, <code>script.js</code>) tamamladı. Dashboard istatistik kartları, tarama başlatma formu, tarama geçmişi tablosu ve gerçek zamanlı durum güncellemelerini yazdı. <code>API</code> nesnesiyle Flask endpoint'lerine bağlandı. Docker ve <code>docker-compose.yml</code> yapılandırmasını hazırladı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(210,153,34,.15);color:var(--yellow)">MBB</div>
+              <div><div class="person-name">Muhammed Baki Başbay</div></div>
+              <span class="person-role-tag tag tag-yellow">Backend · Docs</span>
+            </div>
+            <p class="person-text">
+              <code>ScenarioScanner</code> sınıfını yazdı. <code>scenarios_data/</code> klasöründeki tüm <code>.yaml</code> dosyalarını otomatik yükleyen, matcher'ları çalıştıran ve <code>Vulnerability</code> nesnesi üreten motoru hayata geçirdi. Hatalı YAML dosyalarının sistemi çöktürmemesi için hata yönetimi ekledi.
+            </p>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- HAFTA 5 -->
+      <details class="week">
+        <summary class="week-header">
+          <span class="week-num">05</span>
+          <div class="week-meta">
+            <div class="week-title">Geliştirme (İleri) ve Test</div>
+            <div class="week-desc">Entegrasyon, 13 test dosyası, 3 bug kapatıldı</div>
+          </div>
+          <span class="week-badge tag tag-orange">Mayıs 2026</span>
+          <span class="week-chevron">▶</span>
+        </summary>
+        <div class="week-body">
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(88,166,255,.15);color:var(--blue)">NK</div>
+              <div><div class="person-name">Nehir Kökten</div></div>
+              <span class="person-role-tag tag tag-blue">Proje Lideri</span>
+            </div>
+            <p class="person-text">
+              API katmanını tamamladım. <code>/api/stats</code>, <code>/api/scans/&lt;id&gt;/report.pdf</code>, <code>/api/scans/&lt;id&gt;/report.json</code>, <code>/api/scanners</code>, <code>/api/scenarios</code> endpoint'lerini yazdım. Raporlama modülünün API üzerinden doğru çalıştığını test ettim. Ayrıca sistem mimarisi ve kurulum dokümantasyonunu (<code>MIMARI.md</code>, <code>KURULUM.md</code>) yazdım.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(63,185,80,.15);color:var(--green)">NKa</div>
+              <div><div class="person-name">Nursena Karaduman</div></div>
+              <span class="person-role-tag tag tag-green">Backend · DB</span>
+            </div>
+            <p class="person-text">
+              <code>access_control_scanner.py</code> ve <code>sensitive_data_scanner.py</code> modüllerini tamamladı. Bu modüllerle birlikte sistemimiz 8 bağımsız tarayıcıya ulaştı. Ardından 9 birim test dosyası yazdı; testler gerçek bir HTTP sunucu açarak kasıtlı güvenlik açığı içeren sayfalara istek gönderiyordu.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(240,136,62,.15);color:var(--orange)">MSK</div>
+              <div><div class="person-name">Muhammet Sefa Kozan</div></div>
+              <span class="person-role-tag tag tag-orange">Backend · Test</span>
+            </div>
+            <p class="person-text">
+              Sistemde 3 kritik bug tespit edildi ve kapatıldı. <strong>BUG-001:</strong> Türkçe karakter içeren dosya adları hata veriyordu → ASCII dönüşümüyle çözüldü. <strong>BUG-002:</strong> Veritabanı import sırasında oluşuyordu → lazy initialization ile giderildi. <strong>BUG-003:</strong> Kendi SQL sorgularımızda f-string kullanımı güvenlik açığı oluşturuyordu → parametreli sorgulara geçildi. Ayrıca <code>test_orchestrator.py</code> yazıldı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(188,140,255,.15);color:var(--purple)">ŞD</div>
+              <div><div class="person-name">Şevval Duran</div></div>
+              <span class="person-role-tag tag tag-purple">Frontend · UI/UX</span>
+            </div>
+            <p class="person-text">
+              Docker kurulumunu test etti ve <code>baslat.sh</code> betiğini yazdı. Web arayüzünde son düzenlemeleri yaptı; mobil uyumluluk, tooltip açıklamaları ve hata mesajları eklendi. <code>test_api.py</code> dosyasını yazdı; tüm Flask endpoint'lerinin doğru yanıt verdiğini doğruladı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(210,153,34,.15);color:var(--yellow)">MBB</div>
+              <div><div class="person-name">Muhammed Baki Başbay</div></div>
+              <span class="person-role-tag tag tag-yellow">Backend · Docs</span>
+            </div>
+            <p class="person-text">
+              3 hazır OWASP senaryosu yazdı: <code>01-gizli-admin-panel.yaml</code> (CWE-284, High), <code>02-backup-file-exposure.yaml</code> (CWE-530, Critical), <code>03-git-exposure.yaml</code> (CWE-538, High). <code>test_scenarios.py</code> ile senaryo motorunun doğru çalıştığını test etti. <code>GOREV_DURUMU.md</code> dosyasını güncelledi.
+            </p>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- HAFTA 6 -->
+      <details class="week">
+        <summary class="week-header">
+          <span class="week-num">06</span>
+          <div class="week-meta">
+            <div class="week-title">Entegrasyon, Toparlama ve Sunum</div>
+            <div class="week-desc">Final merge, sunum hazırlığı — ikinci yüz yüze toplantı</div>
+          </div>
+          <span class="week-badge tag tag-green">3 Haziran</span>
+          <span class="week-chevron">▶</span>
+        </summary>
+        <div class="week-body">
+
+          <div class="meeting-callout">
+            📍 <div><strong>Son Yüz Yüze Toplantı — 3 Haziran 2026</strong><br>
+            Tüm modüller ilk kez bir arada çalıştırıldı. Entegrasyon sorunları canlı olarak çözüldü.
+            </div>
+          </div>
+
+          <div class="person-entry" style="margin-top:16px">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(88,166,255,.15);color:var(--blue)">NK</div>
+              <div><div class="person-name">Nehir Kökten</div></div>
+              <span class="person-role-tag tag tag-blue">Proje Lideri</span>
+            </div>
+            <p class="person-text">
+              Sunum dosyasını ve bu proje akış raporunu hazırladım. Sistemin son halini uçtan uca test ettim; gerçek bir hedef URL'ye tarama başlatıp HTML, PDF ve JSON raporlarının üretildiğini doğruladım. Tüm dokümantasyonu gözden geçirdim ve <code>README.md</code>'yi güncelledim. Ekibin çalışmalarını final branch'lerinde birleştirip main'e merge ettim.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(63,185,80,.15);color:var(--green)">NKa</div>
+              <div><div class="person-name">Nursena Karaduman</div></div>
+              <span class="person-role-tag tag tag-green">Backend · DB</span>
+            </div>
+            <p class="person-text">
+              Kalan 2 bug'ı kapattı. Veritabanı ve model testlerini son kez çalıştırdı; tüm testlerin geçtiğini doğruladı. Kod dokümantasyonunu gözden geçirdi ve eksik docstring'leri tamamladı.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(240,136,62,.15);color:var(--orange)">MSK</div>
+              <div><div class="person-name">Muhammet Sefa Kozan</div></div>
+              <span class="person-role-tag tag tag-orange">Backend · Test</span>
+            </div>
+            <p class="person-text">
+              Entegrasyon testlerini çalıştırdı. Orchestrator'ın tüm 8 modülü doğru sırayla çalıştırdığını, sonuçların veritabanına yazıldığını ve API'nin doğru yanıt verdiğini doğruladı. Güvenlik açığı raporunu hazırladı; tespit edilen 3 bug'ın nasıl bulunduğunu ve nasıl kapatıldığını belgeledi.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(188,140,255,.15);color:var(--purple)">ŞD</div>
+              <div><div class="person-name">Şevval Duran</div></div>
+              <span class="person-role-tag tag tag-purple">Frontend · UI/UX</span>
+            </div>
+            <p class="person-text">
+              Sistemin Docker üzerinde sıfırdan kurulumunu test etti. Farklı tarayıcılarda web arayüzünün düzgün görüntülendiğini kontrol etti. <code>DAGITIM_PLANI.md</code> ve <code>KOMUTLAR.md</code> dosyalarını gözden geçirdi.
+            </p>
+          </div>
+
+          <div class="person-entry">
+            <div class="person-head">
+              <div class="person-avatar" style="background:rgba(210,153,34,.15);color:var(--yellow)">MBB</div>
+              <div><div class="person-name">Muhammed Baki Başbay</div></div>
+              <span class="person-role-tag tag tag-yellow">Backend · Docs</span>
+            </div>
+            <p class="person-text">
+              Tüm dokümantasyonu son değişikliklere göre güncelledi. <code>docs/</code> klasöründeki dosyaları kontrol etti. Sunum hazırlıklarına katkı sağladı ve projenin GitHub sayfasını düzenledi.
+            </p>
+          </div>
+
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <!-- ── OUTCOME ── -->
+  <div class="outcome">
+    <div class="outcome-title">
+      🏁 Sonuç
+    </div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.8">
+      6 hafta boyunca her birimiz farklı bir parçadan sorumlu olduk; ama hepsini bir araya getirdiğimizde çalışan, test edilmiş ve belgelenmiş bir sistem ortaya çıktı. Bu proje bize yalnızca teknik bilgi değil; bir ekip olarak çalışmayı, Git ile koordinasyon sağlamayı ve gerçek bir yazılım geliştirme sürecini deneyimlemeyi öğretti.
+    </p>
+    <div class="outcome-grid">
+      <div class="outcome-item">
+        <span class="outcome-icon">🔍</span>
+        <div class="outcome-text"><strong>8 bağımsız tarayıcı</strong> — OWASP Top 10 kapsamı</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">📄</span>
+        <div class="outcome-text"><strong>HTML · JSON · PDF</strong> otomatik raporlama</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">🌐</span>
+        <div class="outcome-text"><strong>Web paneli + REST API</strong> — Flask tabanlı</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">🗄️</span>
+        <div class="outcome-text"><strong>5 tablolu SQLite</strong> veritabanı şeması</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">📝</span>
+        <div class="outcome-text"><strong>YAML senaryo motoru</strong> — özelleştirilebilir</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">✅</span>
+        <div class="outcome-text"><strong>13 test dosyası</strong>, 50+ senaryo</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">🐳</span>
+        <div class="outcome-text"><strong>Docker</strong> ile tek komutlu kurulum</div>
+      </div>
+      <div class="outcome-item">
+        <span class="outcome-icon">🔗</span>
+        <div class="outcome-text"><strong>Demo:</strong> sibersavascilar.vercel.app</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div>
+      Hazırlayan: <span>Nehir Kökten</span> — Proje Lideri
+    </div>
+    <div>
+      <span>Siber Savaşçılar</span> · Fırat Üniversitesi · YMT1104 · 2025–2026 Bahar
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// ── MATRIX RAIN ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('matrix-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const CHARS = '0123456789ABCDEF';
+const FONT_SIZE = 14;
+let columns, drops;
+
+function initMatrix() {
+  columns = Math.floor(canvas.width / FONT_SIZE);
+  drops   = Array.from({ length: columns }, () => Math.random() * -100);
+}
+initMatrix();
+window.addEventListener('resize', initMatrix);
+
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(13,17,23,0.05)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#58A6FF';
+  ctx.font      = FONT_SIZE + 'px JetBrains Mono, monospace';
+
+  for (let i = 0; i < drops.length; i++) {
+    const char = CHARS[Math.floor(Math.random() * CHARS.length)];
+    ctx.fillText(char, i * FONT_SIZE, drops[i] * FONT_SIZE);
+    if (drops[i] * FONT_SIZE > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i] += 0.4;
+  }
+}
+
+setInterval(drawMatrix, 60);
+
+// ── INTERSECTION OBSERVER (scroll reveal) ────────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 80);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.05 });
+
+document.querySelectorAll('.week, .stat-box').forEach(el => observer.observe(el));
+
+// ── OPEN FIRST WEEK BY DEFAULT ────────────────────────────────────────────
+const firstWeek = document.querySelector('details.week');
+if (firstWeek) firstWeek.open = true;
+</script>
+
+</body>
+</html>
