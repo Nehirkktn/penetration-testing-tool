@@ -1,3 +1,12 @@
+# 🛡️ Siber Savaşçılar — Proje Akış Günlüğü
+
+Projemizin 6 haftalık geliştirme sürecini, yapılan çalışmaları ve ekip rollerini içeren dinamik akış günlüğünü canlı olarak görüntülemek için aşağıdaki bağlantıya tıklayabilirsiniz:
+
+👉 [Siber Savaşçılar - Proje Akış Günlüğünü Canlı Aç (Tıkla)](https://htmlpreview.github.io/?https://raw.githubusercontent.com/Nehirkktn/penetration-testing-tool/refs/heads/main/PROJECT_FLOW.html)
+
+---
+
+
 # 🛡️ Sızma Testi Otomasyon Aracı
 
 **OWASP Top 10 (2021) referanslı sızma testi otomasyon aracı.**
